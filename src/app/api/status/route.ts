@@ -33,6 +33,8 @@ export async function GET(request: Request) {
     // If approved, fetch WhatsApp group link from settings
     let whatsappLink = null;
     let bankDetails = null;
+    let adminPhone = null;
+    let courseGuideUrl = null;
 
     const { data: settings } = await supabase
       .from('admin_settings')
@@ -40,8 +42,21 @@ export async function GET(request: Request) {
       .eq('id', 1)
       .single();
 
-    if (record.status === 'Approved') {
-      whatsappLink = settings?.whatsapp_group_link || 'https://chat.whatsapp.com/invite/miratymz-python-vip';
+    adminPhone = settings?.support_phone || '2348100000000';
+
+    if (record.status === 'Approved' || record.status === 'Added to VIP Group') {
+      whatsappLink = settings?.whatsapp_group_link || null;
+
+      // Fetch the latest uploaded PDF guide from storage
+      const { data: files } = await supabase.storage.from('receipts').list('', {
+        limit: 10,
+        search: 'python_course_guide',
+      });
+      if (files && files.length > 0) {
+        files.sort((a: any, b: any) => (b.created_at || '').localeCompare(a.created_at || ''));
+        const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(files[0].name);
+        courseGuideUrl = urlData.publicUrl;
+      }
     }
 
     if (record.status === 'Pending' || record.status === 'Declined') {
@@ -71,6 +86,8 @@ export async function GET(request: Request) {
         approvedAt: record.approved_at,
       },
       whatsappLink,
+      adminPhone,
+      courseGuideUrl,
       bankDetails,
     });
   } catch (err: any) {

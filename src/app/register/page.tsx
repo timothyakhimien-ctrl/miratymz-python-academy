@@ -27,8 +27,12 @@ function RegisterForm() {
   const searchParams = useSearchParams();
   const preCategory = searchParams.get('category');
 
-  // Multi-step: 1 = Details Form, 2 = Bank Details & Upload, 3 = Confirmation
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  // Multi-step: 
+  // 1 = Details Form
+  // 2 = UNIBEN Clearance Slip (if UNIBEN) OR skipped to 3 (if General)
+  // 3 = Bank Details & Receipt Upload
+  // 4 = Confirmation & 24hr Warning
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Form State
   const [fullName, setFullName] = useState('');
@@ -40,9 +44,8 @@ function RegisterForm() {
   const [category, setCategory] = useState<'uniben' | 'general'>(
     preCategory === 'general' ? 'general' : 'uniben'
   );
-  const [learningMode, setLearningMode] = useState('hybrid');
 
-  // Step 2 Server Data
+  // Step 2 & 3 Server Data
   const [trackingId, setTrackingId] = useState('');
   const [amount, setAmount] = useState(5950);
   const [bankDetails, setBankDetails] = useState({
@@ -51,16 +54,16 @@ function RegisterForm() {
     accountName: 'MiraTymz Programming Academy',
   });
 
-  // Receipt & Clearance File State
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
-  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  // Files
   const [clearanceFile, setClearanceFile] = useState<File | null>(null);
   const [clearancePreview, setClearancePreview] = useState<string | null>(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Handle Step 1 Submit
+  // Handle Step 1 Submit (Personal Details)
   const handleStep1Submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -92,7 +95,14 @@ function RegisterForm() {
       if (data.bankDetails) {
         setBankDetails(data.bankDetails);
       }
-      setStep(2);
+
+      // If UNIBEN -> go to Step 2 (Clearance Slip upload)
+      // If General -> proceed directly to Step 3 (Payment Transfer & Receipt)
+      if (category === 'uniben') {
+        setStep(2);
+      } else {
+        setStep(3);
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
       setErrorMsg(err.message || 'Something went wrong. Please check your network.');
@@ -101,42 +111,23 @@ function RegisterForm() {
     }
   };
 
-  // Handle Receipt File Selection
-  const handleReceiptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setReceiptFile(file);
-      if (file.type.startsWith('image/')) {
-        setReceiptPreview(URL.createObjectURL(file));
-      } else {
-        setReceiptPreview(null);
-      }
+  // Handle Step 2 (Clearance Slip validation)
+  const handleStep2Submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clearanceFile) {
+      setErrorMsg('Please select your UNIBEN clearance slip, course registration slip, or student ID card.');
+      return;
     }
+    setErrorMsg('');
+    setStep(3);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Handle Clearance File Selection (for UNIBEN students)
-  const handleClearanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setClearanceFile(file);
-      if (file.type.startsWith('image/')) {
-        setClearancePreview(URL.createObjectURL(file));
-      } else {
-        setClearancePreview(null);
-      }
-    }
-  };
-
-  // Handle Step 2 Done / Submit Receipt
-  const handleStep2Submit = async (e: React.FormEvent) => {
+  // Handle Step 3 (Receipt upload and final submission)
+  const handleStep3Submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!receiptFile) {
       setErrorMsg('Please upload a screenshot or PDF receipt of your payment transfer.');
-      return;
-    }
-
-    if (category === 'uniben' && !clearanceFile) {
-      setErrorMsg('As a UNIBEN student claiming the 30% discount, please attach your student clearance slip / proof of enrollment.');
       return;
     }
 
@@ -161,7 +152,7 @@ function RegisterForm() {
         throw new Error(data.error || 'Failed to upload receipt');
       }
 
-      setStep(3);
+      setStep(4);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
       setErrorMsg(err.message || 'Error uploading receipt.');
@@ -170,9 +161,42 @@ function RegisterForm() {
     }
   };
 
+  // Handle Receipt File Selection
+  const handleReceiptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setReceiptFile(file);
+      if (file.type.startsWith('image/')) {
+        setReceiptPreview(URL.createObjectURL(file));
+      } else {
+        setReceiptPreview(null);
+      }
+    }
+  };
+
+  // Handle Clearance File Selection
+  const handleClearanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setClearanceFile(file);
+      if (file.type.startsWith('image/')) {
+        setClearancePreview(URL.createObjectURL(file));
+      } else {
+        setClearancePreview(null);
+      }
+    }
+  };
+
   // Copy Account Number
   const copyAccount = () => {
     navigator.clipboard.writeText(bankDetails.accountNumber);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  // Copy Tracking ID
+  const copyTrackingId = () => {
+    navigator.clipboard.writeText(trackingId);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
@@ -186,36 +210,52 @@ function RegisterForm() {
         </span>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2">
           {step === 1 && 'Step 1: Student Information'}
-          {step === 2 && 'Step 2: Bank Transfer & Payment Proof'}
-          {step === 3 && 'Registration Successfully Received!'}
+          {step === 2 && 'Step 2: UNIBEN Student Verification'}
+          {step === 3 && 'Step 3: Bank Transfer & Payment Proof'}
+          {step === 4 && 'Registration Successfully Received!'}
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="text-sm text-slate-500 mt-1 max-w-lg mx-auto">
           {step === 1 && 'Fill your details below to calculate your course fee and generate your enrollment ID.'}
-          {step === 2 && 'Transfer the exact fee to the account details below, then upload your transaction receipt.'}
-          {step === 3 && 'Your payment is now under review by our admissions department.'}
+          {step === 2 && 'Upload your UNIBEN student clearance slip or ID card to validate your 30% discount.'}
+          {step === 3 && 'Transfer the exact fee to the designated account below and submit your payment screenshot.'}
+          {step === 4 && 'Your payment is now under review by our admissions department.'}
         </p>
 
         {/* Progress Bar */}
-        <div className="flex items-center justify-center gap-3 mt-6">
+        <div className="flex items-center justify-center gap-2 sm:gap-3 mt-6">
           <div className={`flex items-center gap-1.5 text-xs font-bold ${step >= 1 ? 'text-brand-800' : 'text-slate-400'}`}>
             <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${step >= 1 ? 'bg-brand-800 text-white' : 'bg-slate-200 text-slate-600'}`}>
               1
             </span>
-            <span>Details</span>
+            <span className="hidden sm:inline">Details</span>
           </div>
-          <div className={`w-10 h-0.5 ${step >= 2 ? 'bg-brand-800' : 'bg-slate-200'}`} />
-          <div className={`flex items-center gap-1.5 text-xs font-bold ${step >= 2 ? 'text-brand-800' : 'text-slate-400'}`}>
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${step >= 2 ? 'bg-brand-800 text-white' : 'bg-slate-200 text-slate-600'}`}>
-              2
-            </span>
-            <span>Payment Proof</span>
-          </div>
-          <div className={`w-10 h-0.5 ${step >= 3 ? 'bg-brand-800' : 'bg-slate-200'}`} />
+          <div className={`w-6 sm:w-10 h-0.5 ${step >= 2 ? 'bg-brand-800' : 'bg-slate-200'}`} />
+          
+          {category === 'uniben' && (
+            <>
+              <div className={`flex items-center gap-1.5 text-xs font-bold ${step >= 2 ? 'text-brand-800' : 'text-slate-400'}`}>
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${step >= 2 ? 'bg-brand-800 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                  2
+                </span>
+                <span className="hidden sm:inline">Clearance</span>
+              </div>
+              <div className={`w-6 sm:w-10 h-0.5 ${step >= 3 ? 'bg-brand-800' : 'bg-slate-200'}`} />
+            </>
+          )}
+
           <div className={`flex items-center gap-1.5 text-xs font-bold ${step >= 3 ? 'text-brand-800' : 'text-slate-400'}`}>
             <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${step >= 3 ? 'bg-brand-800 text-white' : 'bg-slate-200 text-slate-600'}`}>
-              3
+              {category === 'uniben' ? '3' : '2'}
             </span>
-            <span>Verification</span>
+            <span className="hidden sm:inline">Payment</span>
+          </div>
+          <div className={`w-6 sm:w-10 h-0.5 ${step >= 4 ? 'bg-brand-800' : 'bg-slate-200'}`} />
+
+          <div className={`flex items-center gap-1.5 text-xs font-bold ${step >= 4 ? 'text-brand-800' : 'text-slate-400'}`}>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${step >= 4 ? 'bg-brand-800 text-white' : 'bg-slate-200 text-slate-600'}`}>
+              {category === 'uniben' ? '4' : '3'}
+            </span>
+            <span className="hidden sm:inline">Finish</span>
           </div>
         </div>
       </div>
@@ -435,9 +475,73 @@ function RegisterForm() {
       )}
 
       {/* ============================================================ */}
-      {/* STEP 2: BANK TRANSFER DETAILS & RECEIPT UPLOAD             */}
+      {/* STEP 2: UNIBEN CLEARANCE SLIP UPLOAD (For UNIBEN Students)   */}
       {/* ============================================================ */}
-      {step === 2 && (
+      {step === 2 && category === 'uniben' && (
+        <form onSubmit={handleStep2Submit} className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+          <div className="bg-gold-50 border border-gold-200 rounded-2xl p-4 text-gold-950 flex items-start gap-3">
+            <FileText className="w-5 h-5 text-gold-700 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-extrabold text-sm sm:text-base">
+                UNIBEN Student Enrollment Verification
+              </h3>
+              <p className="text-xs text-gold-900 mt-1 leading-relaxed">
+                To activate your <strong>30% university discount (₦5,950)</strong>, please attach a snapshot or PDF of your UNIBEN clearance slip, course registration form, or student ID card.
+              </p>
+            </div>
+          </div>
+
+          <div className="border-2 border-dashed border-gold-300 hover:border-gold-500 bg-gold-50/20 rounded-2xl p-6 sm:p-8 text-center transition">
+            <input
+              type="file"
+              id="clearanceUpload"
+              required
+              accept="image/*,.pdf"
+              onChange={handleClearanceChange}
+              className="hidden"
+            />
+            <label htmlFor="clearanceUpload" className="cursor-pointer flex flex-col items-center">
+              <div className="w-12 h-12 rounded-full bg-gold-100 text-gold-800 flex items-center justify-center mb-3">
+                <FileText className="w-6 h-6" />
+              </div>
+              <span className="text-sm font-bold text-slate-800">
+                {clearanceFile ? clearanceFile.name : 'Click to select UNIBEN clearance slip or student ID'}
+              </span>
+              <span className="text-xs text-slate-400 mt-1">
+                Supports JPG, PNG, WebP or PDF (Max 10MB)
+              </span>
+            </label>
+
+            {clearancePreview && (
+              <div className="mt-4 inline-block relative border rounded-xl overflow-hidden shadow-sm max-w-[220px]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={clearancePreview} alt="Clearance slip preview" className="max-h-40 object-contain" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-sm hover:bg-slate-50 transition"
+            >
+              &larr; Back to Details
+            </button>
+            <button
+              type="submit"
+              className="w-full sm:flex-1 bg-brand-800 hover:bg-brand-900 text-white font-extrabold text-base py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2"
+            >
+              <span>Continue to Payment &rarr;</span>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* ============================================================ */}
+      {/* STEP 3: BANK TRANSFER DETAILS & RECEIPT UPLOAD             */}
+      {/* ============================================================ */}
+      {step === 3 && (
         <div className="space-y-6">
           {/* Tracking ID Header Card */}
           <div className="bg-brand-950 text-white p-6 rounded-3xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -514,7 +618,7 @@ function RegisterForm() {
           </div>
 
           {/* Upload Proof of Payment Form */}
-          <form onSubmit={handleStep2Submit} className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+          <form onSubmit={handleStep3Submit} className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
             <div>
               <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
                 <Upload className="w-5 h-5 text-brand-700" />
@@ -554,72 +658,37 @@ function RegisterForm() {
               )}
             </div>
 
-            {/* UNIBEN Student Clearance Slip Attachment */}
-            {category === 'uniben' && (
-              <div className="pt-2 border-t border-slate-200 space-y-3">
-                <div>
-                  <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-gold-600" />
-                    <span>UNIBEN Student Clearance Slip / ID Proof *</span>
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    To validate your 30% discount (₦5,950), please upload a clear photo or PDF of your UNIBEN clearance slip, course registration slip, or student ID card.
-                  </p>
-                </div>
-
-                <div className="border-2 border-dashed border-gold-300 hover:border-gold-500 bg-gold-50/30 rounded-2xl p-5 text-center transition">
-                  <input
-                    type="file"
-                    id="clearanceUpload"
-                    required
-                    accept="image/*,.pdf"
-                    onChange={handleClearanceChange}
-                    className="hidden"
-                  />
-                  <label htmlFor="clearanceUpload" className="cursor-pointer flex flex-col items-center">
-                    <div className="w-10 h-10 rounded-full bg-gold-100 text-gold-800 flex items-center justify-center mb-2">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-800">
-                      {clearanceFile ? clearanceFile.name : 'Click to upload UNIBEN clearance slip or student ID'}
-                    </span>
-                    <span className="text-[11px] text-slate-400 mt-1">
-                      JPG, PNG, or PDF format
-                    </span>
-                  </label>
-
-                  {clearancePreview && (
-                    <div className="mt-3 inline-block relative border rounded-xl overflow-hidden shadow-sm max-w-[180px]">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={clearancePreview} alt="Clearance slip preview" className="max-h-32 object-contain" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-brand-800 to-emerald-900 hover:from-brand-900 hover:to-emerald-950 text-white font-extrabold text-base py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {loading ? (
-                <span>Uploading Receipt &amp; Submitting...</span>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-5 h-5 text-brand-400" />
-                  <span>I Have Paid &bull; Submit Proof (Done)</span>
-                </>
-              )}
-            </button>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setStep(category === 'uniben' ? 2 : 1)}
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-sm hover:bg-slate-50 transition"
+              >
+                &larr; Back
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full sm:flex-1 bg-gradient-to-r from-brand-800 to-emerald-900 hover:from-brand-900 hover:to-emerald-950 text-white font-extrabold text-base py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? (
+                  <span>Uploading Receipt &amp; Submitting...</span>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 text-brand-400" />
+                    <span>I Have Paid &bull; Submit Proof (Done)</span>
+                  </>
+                )}
+              </button>
+            </div>
           </form>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* STEP 3: SUBMISSION SUCCESS & STATUS CHECK DIRECTIVE         */}
+      {/* STEP 4: SUBMISSION SUCCESS & 24HR SECURITY WARNING          */}
       {/* ============================================================ */}
-      {step === 3 && (
+      {step === 4 && (
         <div className="bg-white border-2 border-brand-600 rounded-3xl p-8 sm:p-10 shadow-xl text-center space-y-6">
           <div className="w-16 h-16 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center mx-auto shadow-inner">
             <CheckCircle2 className="w-10 h-10" />
@@ -633,34 +702,56 @@ function RegisterForm() {
               Payment Under Review!
             </h2>
             <p className="text-sm text-slate-600 max-w-md mx-auto mt-2 leading-relaxed">
-              Thank you, <strong>{fullName}</strong>. Your proof of payment has been securely received by the MiraTymz Admissions Desk.
+              Thank you, <strong>{fullName}</strong>. Your payment proof and details have been securely received by the MiraTymz Admissions Desk.
             </p>
           </div>
 
-          {/* Tracking ID Badge */}
+          {/* Tracking ID Badge with Copy */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 max-w-md mx-auto">
             <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">
-              Your Application Tracking ID
+              Your Application Tracking Reference
             </span>
-            <div className="text-3xl font-mono font-black text-brand-900 tracking-wider my-1">
-              {trackingId}
+            <div className="flex items-center justify-center gap-2 my-1">
+              <span className="text-3xl font-mono font-black text-brand-900 tracking-wider">
+                {trackingId}
+              </span>
+              <button
+                type="button"
+                onClick={copyTrackingId}
+                className="p-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 transition text-slate-700 text-xs flex items-center gap-1 shadow-sm"
+                title="Copy Tracking ID"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                <span className="font-bold">{copied ? 'Copied' : 'Copy'}</span>
+              </button>
             </div>
             <p className="text-xs text-slate-400">
-              Save this reference code. You will need it to verify your admission and access the classroom.
+              Save this reference code to check your admission status anytime.
             </p>
           </div>
 
-          {/* Rephrased Expectation Callout */}
+          {/* 24-HOUR SECURITY NOTICE */}
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 max-w-md mx-auto text-left text-amber-950 space-y-2">
+            <div className="font-extrabold text-sm flex items-center gap-2 text-amber-900">
+              <AlertCircle className="w-5 h-5 text-amber-700 shrink-0" />
+              <span>IMPORTANT: Copy &amp; Save Your Tracking ID!</span>
+            </div>
+            <p className="text-xs text-amber-900/90 leading-relaxed">
+              For security and privacy reasons, this tracking reference will <strong>stop displaying on this page after 24 hours</strong>. However, it will remain fully functional in our system for your status lookups. Copy or screenshot it now!
+            </p>
+          </div>
+
+          {/* What Happens Next Callout */}
           <div className="bg-brand-50 border border-brand-200 rounded-2xl p-4 max-w-md mx-auto text-left text-xs text-brand-900 leading-relaxed space-y-2">
             <div className="font-extrabold flex items-center gap-1.5 text-brand-950">
               <ShieldCheck className="w-4 h-4 text-brand-700 shrink-0" />
               <span>What Happens Next?</span>
             </div>
             <p>
-              1. Our finance and admissions officers will verify your bank transaction receipt (typically within 15 to 30 minutes).
+              1. Our finance and admissions officers will verify your transfer and student clearance slip.
             </p>
             <p>
-              2. Once approved, you will be automatically admitted and given instant access to the <strong>Official VIP WhatsApp Community for Paid Members</strong> to receive course slides and orientation instructions.
+              2. Once approved, you can visit the <strong>Status Page</strong> to connect with the admin directly on WhatsApp with your student credentials to be added to the VIP Paid Members Group.
             </p>
           </div>
 

@@ -154,10 +154,16 @@ function StatusContent() {
 
             {/* Status Pill */}
             <div>
+              {result.registration.status === 'Added to VIP Group' && (
+                <div className="bg-emerald-100 text-emerald-950 border border-emerald-400 font-black text-xs px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                  <span>ADDED TO VIP GROUP</span>
+                </div>
+              )}
               {result.registration.status === 'Approved' && (
                 <div className="bg-emerald-100 text-emerald-900 border border-emerald-300 font-black text-xs px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
                   <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                  <span>ADMISSION APPROVED</span>
+                  <span>PAYMENT APPROVED</span>
                 </div>
               )}
               {result.registration.status === 'Under Review' && (
@@ -182,40 +188,82 @@ function StatusContent() {
           </div>
 
           {/* ========================================================= */}
-          {/* STATE 1: APPROVED (With Rephrased WhatsApp Invite)       */}
+          {/* STATE 1: APPROVED OR ADDED TO VIP GROUP                   */}
           {/* ========================================================= */}
-          {result.registration.status === 'Approved' && (
+          {(result.registration.status === 'Approved' || result.registration.status === 'Added to VIP Group') && (
             <div className="space-y-6">
-              <div className="bg-gradient-to-br from-emerald-900 to-brand-950 text-white rounded-2xl p-6 sm:p-8 shadow-xl text-center space-y-4">
+              <div className="bg-gradient-to-br from-emerald-900 via-brand-950 to-slate-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl text-center space-y-5 border border-emerald-800/40">
                 <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-400/30">
                   <CheckCircle2 className="w-8 h-8" />
                 </div>
 
                 <div className="space-y-1">
                   <h3 className="text-xl sm:text-2xl font-black text-white">
-                    Congratulations! Your Admission is Confirmed.
+                    {result.registration.status === 'Added to VIP Group'
+                      ? 'You Are Officially Enrolled & In The VIP Group!'
+                      : 'Congratulations! Your Payment Has Been Approved.'}
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto leading-relaxed">
-                    Your payment of <strong>{formatNaira(result.registration.amount)}</strong> has been verified and approved by the MiraTymz Admissions Desk. You have been granted full student credentials for the <strong>8-Week Python Training Programme</strong>.
+                    Student: <strong className="text-white">{result.registration.fullName}</strong> &bull; Tracking ID: <strong className="text-gold-400">{result.registration.trackingId}</strong>
+                  </p>
+                  <p className="text-xs text-slate-300 max-w-xl mx-auto leading-relaxed">
+                    Your fee payment of <strong>{formatNaira(result.registration.amount)}</strong> is confirmed. Message the academy administrator directly on WhatsApp using the button below to be admitted to the VIP Paid Members Group right away.
                   </p>
                 </div>
 
-                {/* Instant WhatsApp Button */}
+                {/* Pre-filled WhatsApp Admin Link */}
                 <div className="pt-2">
-                  <a
-                    href={result.whatsappLink || 'https://chat.whatsapp.com/invite/miratymz-python-vip'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-black text-sm sm:text-base px-8 py-4 rounded-xl shadow-lg hover:shadow-emerald-500/25 transition transform hover:-translate-y-0.5"
-                  >
-                    <MessageCircle className="w-5 h-5 fill-current" />
-                    <span>Join Approved Paid Members WhatsApp Group</span>
-                    <ExternalLink className="w-4 h-4 ml-1" />
-                  </a>
-                  <p className="text-[11px] text-slate-400 mt-2">
-                    Click the button above right away to join your class group, receive lecture schedules, and download orientation software packages.
+                  {(() => {
+                    const cleanPhone = (result.adminPhone || '2348100000000').replace(/[^0-9]/g, '');
+                    const messageText = `Hello MiraTymz Academy Admin, my name is ${result.registration.fullName}. My payment for the 8-Week Python Training Programme has been approved (Tracking ID: ${result.registration.trackingId}). Kindly add me to the VIP WhatsApp Group for Paid Members.`;
+                    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(messageText)}`;
+
+                    return (
+                      <a
+                        href={waUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-black text-sm sm:text-base px-8 py-4 rounded-xl shadow-lg hover:shadow-emerald-500/25 transition transform hover:-translate-y-0.5"
+                      >
+                        <MessageCircle className="w-5 h-5 fill-current" />
+                        <span>Message Admin on WhatsApp to Join VIP Group</span>
+                        <ExternalLink className="w-4 h-4 ml-1" />
+                      </a>
+                    );
+                  })()}
+
+                  <p className="text-[11px] text-slate-400 mt-2 max-w-md mx-auto leading-tight">
+                    This automatically messages the admin with your Full Name (<strong>{result.registration.fullName}</strong>) and Tracking ID (<strong>{result.registration.trackingId}</strong>) attached for instant verification.
                   </p>
                 </div>
+
+                {/* Free Course Material Download Box for Paid Students */}
+                {result.courseGuideUrl && (
+                  <div className="mt-6 pt-5 border-t border-emerald-800/60 bg-emerald-950/40 p-4 rounded-2xl text-left flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-gold-500/20 text-gold-400 flex items-center justify-center shrink-0">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-black text-gold-400 uppercase tracking-wider block">
+                          Complimentary Study Package
+                        </span>
+                        <strong className="text-sm text-white">8-Week Python Mastery Guide (PDF)</strong>
+                        <p className="text-[11px] text-slate-300">
+                          Complete curriculum notes, installation blueprint &amp; exercises.
+                        </p>
+                      </div>
+                    </div>
+                    <a
+                      href={result.courseGuideUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full sm:w-auto bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-xs px-5 py-2.5 rounded-xl shadow transition text-center whitespace-nowrap"
+                    >
+                      Open &amp; Download PDF &rarr;
+                    </a>
+                  </div>
+                )}
               </div>
 
               {/* Class Schedule Note */}

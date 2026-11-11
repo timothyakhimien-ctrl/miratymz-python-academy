@@ -53,11 +53,11 @@ export async function GET(request: Request) {
       total: allRecords?.length || 0,
       pending: allRecords?.filter((r: any) => r.status === 'Pending').length || 0,
       underReview: allRecords?.filter((r: any) => r.status === 'Under Review').length || 0,
-      approved: allRecords?.filter((r: any) => r.status === 'Approved').length || 0,
+      approved: allRecords?.filter((r: any) => r.status === 'Approved' || r.status === 'Added to VIP Group').length || 0,
       declined: allRecords?.filter((r: any) => r.status === 'Declined').length || 0,
       totalRevenue:
         allRecords
-          ?.filter((r: any) => r.status === 'Approved')
+          ?.filter((r: any) => r.status === 'Approved' || r.status === 'Added to VIP Group')
           .reduce((sum: number, r: any) => sum + (r.amount || 0), 0) || 0,
     };
 

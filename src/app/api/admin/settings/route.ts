@@ -29,7 +29,25 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, settings });
+    // List any course guide uploaded in storage
+    const { data: files } = await supabase.storage.from('receipts').list('', {
+      limit: 10,
+      search: 'python_course_guide',
+    });
+    let latestGuideUrl = null;
+    if (files && files.length > 0) {
+      files.sort((a: any, b: any) => (b.created_at || '').localeCompare(a.created_at || ''));
+      const { data: publicUrlData } = supabase.storage.from('receipts').getPublicUrl(files[0].name);
+      latestGuideUrl = publicUrlData.publicUrl;
+    }
+
+    return NextResponse.json({
+      success: true,
+      settings: {
+        ...settings,
+        course_guide_url: latestGuideUrl,
+      },
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

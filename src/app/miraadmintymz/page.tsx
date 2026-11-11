@@ -23,6 +23,7 @@ import {
   TrendingUp,
   RefreshCw,
   Trash2,
+  FileText,
 } from 'lucide-react';
 import { formatNaira } from '@/lib/utils';
 
@@ -61,8 +62,11 @@ export default function AdminPage() {
     generalFee: 10000,
     whatsappGroupLink: 'https://chat.whatsapp.com/invite/miratymz-python-vip',
     supportPhone: '+234 810 000 0000',
+    courseGuideUrl: '',
   });
   const [settingsLoading, setSettingsLoading] = useState(false);
+  const [materialFile, setMaterialFile] = useState<File | null>(null);
+  const [materialUploading, setMaterialUploading] = useState(false);
 
   // Selected Receipt Modal
   const [activeReceiptUrl, setActiveReceiptUrl] = useState<string | null>(null);
@@ -164,6 +168,7 @@ export default function AdminPage() {
           generalFee: data.settings.general_fee || 10000,
           whatsappGroupLink: data.settings.whatsapp_group_link || '',
           supportPhone: data.settings.support_phone || '',
+          courseGuideUrl: data.settings.course_guide_url || '',
         });
       }
     } catch (err) {
@@ -198,8 +203,39 @@ export default function AdminPage() {
     }
   };
 
-  // Action on registration (Approve / Decline)
-  const handleAction = async (trackingId: string, action: 'approve' | 'decline') => {
+  // Upload Course Guide PDF
+  const handleUploadMaterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!materialFile || !token) return;
+    setMaterialUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', materialFile);
+
+      const res = await fetch('/api/admin/material', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to upload PDF');
+
+      setBankSettings((prev) => ({ ...prev, courseGuideUrl: data.url }));
+      showToast('Course Guide PDF uploaded & live for paid students!');
+      setMaterialFile(null);
+    } catch (err: any) {
+      alert(err.message || 'Error uploading material');
+    } finally {
+      setMaterialUploading(false);
+    }
+  };
+
+  // Action on registration (Approve / Added to VIP / Decline)
+  const handleAction = async (trackingId: string, action: 'approve' | 'added_to_vip' | 'decline') => {
     if (!token) return;
     let reason = '';
     if (action === 'decline') {
@@ -548,6 +584,12 @@ export default function AdminPage() {
                         </td>
 
                         <td className="py-3.5 px-4">
+                          {reg.status === 'Added to VIP Group' && (
+                            <span className="bg-emerald-100 text-emerald-950 font-black text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 w-max border border-emerald-300">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                              <span>In VIP Group</span>
+                            </span>
+                          )}
                           {reg.status === 'Approved' && (
                             <span className="bg-emerald-100 text-emerald-900 font-bold text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 w-max">
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
@@ -574,22 +616,44 @@ export default function AdminPage() {
                           )}
                         </td>
 
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 space-y-1">
                           {reg.receipt_url ? (
                             <button
                               onClick={() => setActiveReceiptUrl(reg.receipt_url)}
                               className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-700 hover:text-brand-900 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-lg border border-brand-200 transition"
                             >
                               <Eye className="w-3.5 h-3.5" />
-                              <span>Inspect Receipt</span>
+                              <span>Payment Receipt</span>
                             </button>
                           ) : (
-                            <span className="text-slate-400 text-[11px] italic">No receipt yet</span>
+                            <span className="text-slate-400 text-[11px] italic block">No receipt</span>
+                          )}
+
+                          {reg.declined_reason && reg.declined_reason.includes('UNIBEN Clearance Slip:') && (
+                            <a
+                              href={reg.declined_reason.replace('UNIBEN Clearance Slip: ', '')}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-gold-700 hover:text-gold-900 bg-gold-50 hover:bg-gold-100 px-2.5 py-1 rounded-lg border border-gold-200 transition block w-max"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>Clearance Slip</span>
+                            </a>
                           )}
                         </td>
 
                         <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
-                          {reg.status !== 'Approved' && (
+                          {reg.status === 'Approved' && (
+                            <button
+                              onClick={() => handleAction(reg.tracking_id, 'added_to_vip')}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-2.5 py-1.5 rounded-lg shadow-sm transition"
+                              title="Mark as joined the VIP WhatsApp group"
+                            >
+                              Mark Added to VIP
+                            </button>
+                          )}
+
+                          {reg.status !== 'Approved' && reg.status !== 'Added to VIP Group' && (
                             <button
                               onClick={() => handleAction(reg.tracking_id, 'approve')}
                               className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition"
@@ -715,24 +779,39 @@ export default function AdminPage() {
 
           <div className="pt-4 border-t border-slate-100">
             <h3 className="text-sm font-extrabold text-slate-900 mb-1">
-              Official WhatsApp Community Integration
+              Admin Contact &amp; Course Materials
             </h3>
             <p className="text-xs text-slate-500 mb-3">
-              This link is immediately granted to students once you click <strong>&quot;Approve&quot;</strong>.
+              Configure your direct admin phone number (students will message this on WhatsApp with their name &amp; tracking ID upon approval) and upload course PDF materials.
             </p>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Paid Members VIP WhatsApp Group Invite Link *
-              </label>
-              <input
-                type="url"
-                required
-                value={bankSettings.whatsappGroupLink}
-                onChange={(e) => setBankSettings({ ...bankSettings, whatsappGroupLink: e.target.value })}
-                placeholder="https://chat.whatsapp.com/..."
-                className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-600"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Admin WhatsApp Contact Number *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={bankSettings.supportPhone}
+                  onChange={(e) => setBankSettings({ ...bankSettings, supportPhone: e.target.value })}
+                  placeholder="e.g. +234 812 345 6789"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  VIP Group Invite Link (Optional backup)
+                </label>
+                <input
+                  type="url"
+                  value={bankSettings.whatsappGroupLink}
+                  onChange={(e) => setBankSettings({ ...bankSettings, whatsappGroupLink: e.target.value })}
+                  placeholder="https://chat.whatsapp.com/..."
+                  className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-600"
+                />
+              </div>
             </div>
           </div>
 
@@ -747,6 +826,55 @@ export default function AdminPage() {
             </button>
           </div>
         </form>
+      )}
+
+      {/* Course Material Upload Section under settings */}
+      {activeTab === 'settings' && (
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4 max-w-3xl mt-6">
+          <div>
+            <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-gold-600" />
+              <span>Paid Student Complimentary Course Material (PDF)</span>
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Upload the complete course guide or lecture manual. Approved paid students can open and download this directly from their status screen.
+            </p>
+          </div>
+
+          {bankSettings.courseGuideUrl && (
+            <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl flex items-center justify-between text-xs text-emerald-950">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Current Active PDF: <strong>Course Guide Loaded in Supabase Storage</strong></span>
+              </div>
+              <a
+                href={bankSettings.courseGuideUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold text-emerald-800 underline hover:text-emerald-950"
+              >
+                Preview File &rarr;
+              </a>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <input
+              type="file"
+              accept=".pdf"
+              onChange={(e) => e.target.files && setMaterialFile(e.target.files[0])}
+              className="text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-brand-50 file:text-brand-800 hover:file:bg-brand-100 cursor-pointer w-full"
+            />
+            <button
+              type="button"
+              onClick={handleUploadMaterial}
+              disabled={!materialFile || materialUploading}
+              className="w-full sm:w-auto bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-xs px-5 py-2.5 rounded-xl transition shadow disabled:opacity-50 whitespace-nowrap"
+            >
+              {materialUploading ? 'Uploading to Supabase...' : 'Upload PDF Material'}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ============================================================ */}

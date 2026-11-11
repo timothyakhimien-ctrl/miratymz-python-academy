@@ -29,6 +29,27 @@ export async function POST(request: Request) {
 
     const supabase = getServiceSupabase();
 
+    if (action === 'added_to_vip') {
+      const { data, error } = await supabase
+        .from('registrations')
+        .update({
+          status: 'Added to VIP Group',
+        })
+        .eq('tracking_id', trackingId)
+        .select()
+        .single();
+
+      if (error) {
+        return NextResponse.json({ error: 'Failed to update VIP status' }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Student ${trackingId} is now marked as Added to VIP Group.`,
+        registration: data,
+      });
+    }
+
     if (action === 'approve') {
       const { data, error } = await supabase
         .from('registrations')
