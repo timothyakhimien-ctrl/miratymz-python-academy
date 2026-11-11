@@ -99,85 +99,85 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="flex flex-col gap-20 overflow-hidden">
+    <div className="flex flex-col gap-14 sm:gap-20 overflow-hidden">
       {/* HERO SECTION */}
-      <section className="relative pt-12 pb-20 lg:pt-20 lg:pb-32 bg-gradient-to-b from-brand-950 via-brand-900 to-slate-900 text-white">
+      <section className="relative pt-8 pb-16 sm:pt-14 sm:pb-24 lg:pt-20 lg:pb-32 bg-gradient-to-b from-brand-950 via-brand-900 to-slate-900 text-white">
         {/* Glow Effects */}
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-10 w-80 h-80 bg-gold-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12 items-center">
             
             {/* Left Column: Headline & Value Proposition */}
-            <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-              <div className="inline-flex items-center gap-2 bg-brand-800/80 border border-brand-500/30 px-3.5 py-1.5 rounded-full text-xs font-bold text-brand-300">
-                <Sparkles className="w-4 h-4 text-gold-400" />
+            <div className="lg:col-span-7 space-y-5 sm:space-y-6 text-center lg:text-left">
+              <div className="inline-flex items-center gap-2 bg-brand-800/80 border border-brand-500/30 px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold text-brand-300">
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold-400 shrink-0" />
                 <span>8-WEEK INTENSIVE TRAINING PROGRAMME</span>
               </div>
 
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1]">
+              <h1 className="text-2xl xs:text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.15] sm:leading-[1.1]">
                 PYTHON <br className="hidden sm:inline" />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-gold-400 via-brand-300 to-emerald-400">
                   PROGRAMMING
                 </span>
-                <span className="block text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-200 mt-2">
+                <span className="block text-xl xs:text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-200 mt-2">
                   Foundations &amp; Practical Development
                 </span>
               </h1>
 
-              <p className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+              <p className="text-sm sm:text-lg text-slate-300 max-w-2xl mx-auto lg:mx-0 leading-relaxed px-1 sm:px-0">
                 Learn Python through guided lessons, hands-on practice, and practical projects. Go from absolute beginner to building real-world software, automation tools, and data applications.
               </p>
 
               {/* Flyer Highlights Bar */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 text-left">
-                <div className="bg-brand-900/60 border border-brand-700/50 p-3 rounded-xl">
-                  <div className="flex items-center gap-2 text-gold-400 font-bold text-sm">
-                    <Laptop className="w-4 h-4" />
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 pt-1 sm:pt-2 text-left">
+                <div className="bg-brand-900/60 border border-brand-700/50 p-2.5 sm:p-3 rounded-xl">
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-gold-400 font-bold text-xs sm:text-sm">
+                    <Laptop className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                     <span>Hybrid Mode</span>
                   </div>
-                  <span className="text-xs text-slate-400 block mt-0.5">Online &amp; Physical Classes</span>
+                  <span className="text-[11px] sm:text-xs text-slate-400 block mt-0.5">Online &amp; Physical</span>
                 </div>
 
-                <div className="bg-brand-900/60 border border-brand-700/50 p-3 rounded-xl">
-                  <div className="flex items-center gap-2 text-brand-400 font-bold text-sm">
-                    <BookOpen className="w-4 h-4" />
-                    <span>Materials Included</span>
+                <div className="bg-brand-900/60 border border-brand-700/50 p-2.5 sm:p-3 rounded-xl">
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-brand-400 font-bold text-xs sm:text-sm">
+                    <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span>Materials</span>
                   </div>
-                  <span className="text-xs text-slate-400 block mt-0.5">Slides, Notes &amp; Code</span>
+                  <span className="text-[11px] sm:text-xs text-slate-400 block mt-0.5">Slides, Notes &amp; Code</span>
                 </div>
 
-                <div className="bg-brand-900/60 border border-brand-700/50 p-3 rounded-xl col-span-2 sm:col-span-1">
-                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
-                    <Calendar className="w-4 h-4" />
+                <div className="bg-brand-900/60 border border-brand-700/50 p-2.5 sm:p-3 rounded-xl col-span-2 sm:col-span-1">
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-emerald-400 font-bold text-xs sm:text-sm">
+                    <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                     <span>Starts Nov 16</span>
                   </div>
-                  <span className="text-xs text-slate-400 block mt-0.5">Monday, 16 Nov 2026</span>
+                  <span className="text-[11px] sm:text-xs text-slate-400 block mt-0.5">Monday, 16 Nov 2026</span>
                 </div>
               </div>
 
               {/* CTAs */}
-              <div className="pt-4 flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
+              <div className="pt-2 sm:pt-4 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 justify-center lg:justify-start">
                 <Link
                   href="/register"
-                  className="w-full sm:w-auto bg-gradient-to-r from-gold-500 to-amber-500 hover:from-gold-600 hover:to-amber-600 text-brand-950 font-black text-base px-8 py-4 rounded-xl shadow-lg hover:shadow-gold-500/20 transition flex items-center justify-center gap-2 text-center"
+                  className="w-full sm:w-auto bg-gradient-to-r from-gold-500 to-amber-500 hover:from-gold-600 hover:to-amber-600 text-brand-950 font-black text-sm sm:text-base px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl shadow-lg hover:shadow-gold-500/20 transition flex items-center justify-center gap-2 text-center"
                 >
                   <span>Enroll Now &bull; UNIBEN ₦5,950</span>
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                 </Link>
 
                 <Link
                   href="/status"
-                  className="w-full sm:w-auto bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-sm px-6 py-4 rounded-xl transition flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs sm:text-sm px-5 sm:px-6 py-3.5 sm:py-4 rounded-xl transition flex items-center justify-center gap-2"
                 >
-                  <Shield className="w-4 h-4 text-brand-400" />
+                  <Shield className="w-4 h-4 text-brand-400 shrink-0" />
                   <span>Check Payment Status</span>
                 </Link>
               </div>
 
-              <div className="text-xs text-slate-400 flex items-center justify-center lg:justify-start gap-2 pt-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <div className="text-[11px] sm:text-xs text-slate-400 flex items-center justify-center lg:justify-start gap-2 pt-1 sm:pt-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
                 <span>Limited Seats Available for November 2026 Cohort</span>
               </div>
             </div>
@@ -349,24 +349,24 @@ export default function HomePage() {
       </section>
 
       {/* PRICING & REGISTRATION OFFERS */}
-      <section id="pricing" className="bg-slate-900 text-white py-20 relative">
+      <section id="pricing" className="bg-slate-900 text-white py-14 sm:py-20 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-14">
+          <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-14">
             <span className="text-xs font-bold uppercase tracking-wider text-gold-400 bg-gold-500/10 border border-gold-500/30 px-3 py-1 rounded-full">
               Transparent Tuition Fees
             </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white mt-3 tracking-tight">
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-white mt-3 tracking-tight">
               Invest in Practical Skills That Last a Lifetime
             </h2>
-            <p className="text-slate-400 mt-3 text-sm sm:text-base leading-relaxed">
+            <p className="text-slate-400 mt-2 sm:mt-3 text-sm sm:text-base leading-relaxed px-1 sm:px-0">
               No hidden fees. Full access to physical/online live classes, complete learning resources, software installation support, and private community mentorship.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-4xl mx-auto">
             {/* UNIBEN Special Offer Card */}
-            <div className="bg-gradient-to-b from-brand-900 to-brand-950 border-2 border-gold-500 rounded-3xl p-8 shadow-2xl relative flex flex-col justify-between">
-              <div className="absolute -top-3.5 right-8 bg-gold-500 text-brand-950 font-black text-xs px-3.5 py-1 rounded-full uppercase tracking-wider shadow">
+            <div className="bg-gradient-to-b from-brand-900 to-brand-950 border-2 border-gold-500 rounded-3xl p-6 sm:p-8 shadow-2xl relative flex flex-col justify-between">
+              <div className="absolute -top-3.5 right-6 sm:right-8 bg-gold-500 text-brand-950 font-black text-xs px-3.5 py-1 rounded-full uppercase tracking-wider shadow">
                 30% OFF Limited Offer
               </div>
 
@@ -374,17 +374,17 @@ export default function HomePage() {
                 <span className="text-xs uppercase font-extrabold text-brand-300 tracking-wider">
                   University of Benin Students
                 </span>
-                <h3 className="text-2xl font-black text-white mt-1">UNIBEN Participant Rate</h3>
-                <div className="mt-4 flex items-baseline gap-2">
-                  <span className="text-4xl sm:text-5xl font-black text-white">₦5,950</span>
-                  <span className="text-sm line-through text-slate-400">₦8,500</span>
+                <h3 className="text-xl sm:text-2xl font-black text-white mt-1">UNIBEN Participant Rate</h3>
+                <div className="mt-3 sm:mt-4 flex items-baseline gap-2">
+                  <span className="text-3xl sm:text-5xl font-black text-white">₦5,950</span>
+                  <span className="text-xs sm:text-sm line-through text-slate-400">₦8,500</span>
                   <span className="text-xs text-brand-300 font-bold ml-1">/ Full 8 Weeks</span>
                 </div>
                 <p className="text-xs text-slate-300 mt-2">
                   Subsidized rate for UNIBEN undergraduates across all faculties and departments.
                 </p>
 
-                <ul className="space-y-3 mt-6 text-sm text-slate-200">
+                <ul className="space-y-2.5 sm:space-y-3 mt-5 sm:mt-6 text-xs sm:text-sm text-slate-200">
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-gold-400 shrink-0" />
                     <span>Physical + Online hybrid classroom access</span>
@@ -408,10 +408,10 @@ export default function HomePage() {
                 </ul>
               </div>
 
-              <div className="pt-8">
+              <div className="pt-6 sm:pt-8">
                 <Link
                   href="/register?category=uniben"
-                  className="w-full bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-center py-4 rounded-xl shadow-lg transition block"
+                  className="w-full bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-sm sm:text-base text-center py-3.5 sm:py-4 rounded-xl shadow-lg transition block"
                 >
                   Register as UNIBEN Student &bull; ₦5,950
                 </Link>
@@ -419,21 +419,21 @@ export default function HomePage() {
             </div>
 
             {/* General Public Rate Card */}
-            <div className="bg-slate-800/80 border border-slate-700 rounded-3xl p-8 shadow-xl flex flex-col justify-between">
+            <div className="bg-slate-800/80 border border-slate-700 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col justify-between">
               <div>
                 <span className="text-xs uppercase font-extrabold text-slate-400 tracking-wider">
                   External &amp; General Public
                 </span>
-                <h3 className="text-2xl font-black text-white mt-1">General Registration</h3>
-                <div className="mt-4 flex items-baseline gap-2">
-                  <span className="text-4xl sm:text-5xl font-black text-white">₦10,000</span>
+                <h3 className="text-xl sm:text-2xl font-black text-white mt-1">General Registration</h3>
+                <div className="mt-3 sm:mt-4 flex items-baseline gap-2">
+                  <span className="text-3xl sm:text-5xl font-black text-white">₦10,000</span>
                   <span className="text-xs text-slate-400 font-bold ml-1">/ Full 8 Weeks</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-2">
                   Standard registration for non-UNIBEN students, working professionals, and tech aspirants.
                 </p>
 
-                <ul className="space-y-3 mt-6 text-sm text-slate-300">
+                <ul className="space-y-2.5 sm:space-y-3 mt-5 sm:mt-6 text-xs sm:text-sm text-slate-300">
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-brand-400 shrink-0" />
                     <span>Full online live class broadcasting &amp; recordings</span>
@@ -457,10 +457,10 @@ export default function HomePage() {
                 </ul>
               </div>
 
-              <div className="pt-8">
+              <div className="pt-6 sm:pt-8">
                 <Link
                   href="/register?category=general"
-                  className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-center py-4 rounded-xl transition block"
+                  className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm sm:text-base text-center py-3.5 sm:py-4 rounded-xl transition block"
                 >
                   Register as General Participant &bull; ₦10,000
                 </Link>
@@ -498,27 +498,27 @@ export default function HomePage() {
 
       {/* FINAL CALL TO ACTION */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
-        <div className="bg-gradient-to-r from-brand-950 via-brand-900 to-emerald-950 rounded-3xl p-8 sm:p-12 text-white text-center relative overflow-hidden shadow-2xl border border-brand-800">
-          <div className="max-w-2xl mx-auto space-y-5 relative z-10">
-            <span className="bg-gold-500 text-brand-950 font-black text-xs px-3 py-1 rounded-full uppercase tracking-wider">
+        <div className="bg-gradient-to-r from-brand-950 via-brand-900 to-emerald-950 rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-white text-center relative overflow-hidden shadow-2xl border border-brand-800">
+          <div className="max-w-2xl mx-auto space-y-4 sm:space-y-5 relative z-10">
+            <span className="bg-gold-500 text-brand-950 font-black text-[10px] sm:text-xs px-3 py-1 rounded-full uppercase tracking-wider inline-block">
               Classes Begin Monday, 16 November 2026
             </span>
-            <h2 className="text-3xl sm:text-4xl font-black">
+            <h2 className="text-2xl sm:text-4xl font-black leading-tight">
               Ready to Master Python and Elevate Your Technical Career?
             </h2>
-            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+            <p className="text-slate-300 text-xs sm:text-base leading-relaxed px-1 sm:px-0">
               Fill the simple enrollment form, make your direct bank transfer, upload your receipt, and receive instant access upon review.
             </p>
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
               <Link
                 href="/register"
-                className="w-full sm:w-auto bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-base px-8 py-4 rounded-xl shadow-lg transition"
+                className="w-full sm:w-auto bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-sm sm:text-base px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl shadow-lg transition text-center"
               >
                 Enroll Now &bull; UNIBEN ₦5,950 Offer
               </Link>
               <Link
                 href="/status"
-                className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white font-bold text-sm px-6 py-4 rounded-xl border border-white/20 transition"
+                className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white font-bold text-xs sm:text-sm px-6 py-3.5 sm:py-4 rounded-xl border border-white/20 transition text-center"
               >
                 Already Paid? Check Status
               </Link>

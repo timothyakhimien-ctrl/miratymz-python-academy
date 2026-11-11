@@ -22,31 +22,31 @@ export default function RootLayout({
     <html lang="en" className="scroll-smooth">
       <body className="min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white">
         {/* Top Notification Bar */}
-        <div className="bg-brand-950 text-brand-300 text-xs py-2 px-4 text-center font-medium border-b border-brand-900/60 flex items-center justify-center gap-2">
-          <span className="bg-gold-500 text-brand-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+        <div className="bg-brand-950 text-brand-300 text-xs py-2 px-3 text-center font-medium border-b border-brand-900/60 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 leading-tight">
+          <span className="bg-gold-500 text-brand-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">
             Limited Slots
           </span>
           <span>
             Classes Commencing <strong>Monday, 16 November 2026</strong> &bull; UNIBEN 30% Discount Active
           </span>
-          <Link href="/register" className="text-gold-400 font-bold underline hover:text-white transition ml-1">
+          <Link href="/register" className="text-gold-400 font-bold underline hover:text-white transition whitespace-nowrap">
             Claim ₦5,950 Offer &rarr;
           </Link>
         </div>
 
         {/* Navigation Header */}
         <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 rounded-xl bg-brand-900 border border-brand-700 flex items-center justify-center shadow-md group-hover:bg-brand-800 transition">
-                <Terminal className="w-5 h-5 text-brand-400" />
+            <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-brand-900 border border-brand-700 flex items-center justify-center shadow-md group-hover:bg-brand-800 transition shrink-0">
+                <Terminal className="w-4 h-4 sm:w-5 sm:h-5 text-brand-400" />
               </div>
               <div className="flex flex-col">
-                <span className="font-extrabold text-lg tracking-tight text-slate-900 leading-none">
+                <span className="font-extrabold text-base sm:text-lg tracking-tight text-slate-900 leading-none">
                   MiraTymz
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-brand-700">
+                <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-brand-700">
                   Programming Academy
                 </span>
               </div>
@@ -69,17 +69,18 @@ export default function RootLayout({
             </nav>
 
             {/* CTA Buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Link
                 href="/status"
-                className="text-xs sm:text-sm font-semibold px-3 py-2 rounded-lg text-slate-700 hover:text-brand-700 hover:bg-slate-100 transition flex items-center gap-1.5"
+                className="text-xs sm:text-sm font-semibold px-2.5 sm:px-3 py-2 rounded-lg text-slate-700 hover:text-brand-700 hover:bg-slate-100 transition flex items-center gap-1 sm:gap-1.5"
               >
-                <ShieldCheck className="w-4 h-4 text-brand-600" />
-                <span>Check Status</span>
+                <ShieldCheck className="w-4 h-4 text-brand-600 shrink-0" />
+                <span className="hidden xs:inline">Check Status</span>
+                <span className="xs:hidden">Status</span>
               </Link>
               <Link
                 href="/register"
-                className="bg-brand-800 hover:bg-brand-900 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition flex items-center gap-1.5"
+                className="bg-brand-800 hover:bg-brand-900 text-white text-xs sm:text-sm font-bold px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl shadow-sm hover:shadow transition flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
               >
                 <span>Enroll Now</span>
                 <span className="hidden sm:inline">&rarr;</span>
@@ -163,13 +164,9 @@ export default function RootLayout({
                     <strong>Official WhatsApp:</strong>
                     <span className="block text-brand-400">Via Admissions Desk</span>
                   </div>
-                  <div className="pt-2">
-                    <Link
-                      href="/miraadmintymz"
-                      className="text-[11px] text-slate-500 hover:text-slate-300 transition underline"
-                    >
-                      Staff / Admin Portal
-                    </Link>
+                  <div className="text-slate-300 pt-1">
+                    <strong>Schedule:</strong>
+                    <span className="block text-slate-400">Mon - Sat: 9:00 AM - 6:00 PM</span>
                   </div>
                 </div>
               </div>
