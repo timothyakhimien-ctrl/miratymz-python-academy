@@ -51,9 +51,11 @@ function RegisterForm() {
     accountName: 'MiraTymz Programming Academy',
   });
 
-  // Receipt File State
+  // Receipt & Clearance File State
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
-  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [clearanceFile, setClearanceFile] = useState<File | null>(null);
+  const [clearancePreview, setClearancePreview] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -76,7 +78,7 @@ function RegisterForm() {
           department,
           level,
           category,
-          learningMode,
+          learningMode: 'online',
         }),
       });
 
@@ -100,14 +102,27 @@ function RegisterForm() {
   };
 
   // Handle Receipt File Selection
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleReceiptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setReceiptFile(file);
       if (file.type.startsWith('image/')) {
-        setFilePreview(URL.createObjectURL(file));
+        setReceiptPreview(URL.createObjectURL(file));
       } else {
-        setFilePreview(null);
+        setReceiptPreview(null);
+      }
+    }
+  };
+
+  // Handle Clearance File Selection (for UNIBEN students)
+  const handleClearanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setClearanceFile(file);
+      if (file.type.startsWith('image/')) {
+        setClearancePreview(URL.createObjectURL(file));
+      } else {
+        setClearancePreview(null);
       }
     }
   };
@@ -120,6 +135,11 @@ function RegisterForm() {
       return;
     }
 
+    if (category === 'uniben' && !clearanceFile) {
+      setErrorMsg('As a UNIBEN student claiming the 30% discount, please attach your student clearance slip / proof of enrollment.');
+      return;
+    }
+
     setErrorMsg('');
     setLoading(true);
 
@@ -127,6 +147,9 @@ function RegisterForm() {
       const formData = new FormData();
       formData.append('trackingId', trackingId);
       formData.append('file', receiptFile);
+      if (clearanceFile) {
+        formData.append('clearanceFile', clearanceFile);
+      }
 
       const res = await fetch('/api/upload-receipt', {
         method: 'POST',
@@ -382,44 +405,11 @@ function RegisterForm() {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Preferred Learning Mode
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <label
-                className={`cursor-pointer p-3 rounded-xl border text-xs font-bold flex items-center justify-between ${
-                  learningMode === 'hybrid'
-                    ? 'border-brand-700 bg-brand-50 text-brand-900'
-                    : 'border-slate-200 text-slate-600'
-                }`}
-              >
-                <span>Hybrid (Physical &amp; Online)</span>
-                <input
-                  type="radio"
-                  name="learningMode"
-                  value="hybrid"
-                  checked={learningMode === 'hybrid'}
-                  onChange={() => setLearningMode('hybrid')}
-                />
-              </label>
-              <label
-                className={`cursor-pointer p-3 rounded-xl border text-xs font-bold flex items-center justify-between ${
-                  learningMode === 'online'
-                    ? 'border-brand-700 bg-brand-50 text-brand-900'
-                    : 'border-slate-200 text-slate-600'
-                }`}
-              >
-                <span>100% Online Broadcast</span>
-                <input
-                  type="radio"
-                  name="learningMode"
-                  value="online"
-                  checked={learningMode === 'online'}
-                  onChange={() => setLearningMode('online')}
-                />
-              </label>
-            </div>
+          <div className="bg-brand-50 border border-brand-200 rounded-2xl p-4 text-xs text-brand-900 flex items-center gap-2.5">
+            <Sparkles className="w-4 h-4 text-brand-600 shrink-0" />
+            <span>
+              <strong>100% Online Intensive Mode:</strong> Live interactive broadcasting, step-by-step coding demonstrations, and recorded replays for your schedule.
+            </span>
           </div>
 
           <div className="pt-4">
@@ -524,11 +514,11 @@ function RegisterForm() {
           </div>
 
           {/* Upload Proof of Payment Form */}
-          <form onSubmit={handleStep2Submit} className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-5">
+          <form onSubmit={handleStep2Submit} className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
             <div>
               <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
                 <Upload className="w-5 h-5 text-brand-700" />
-                <span>Upload Transaction Proof (Receipt / Screenshot)</span>
+                <span>Upload Transaction Proof (Receipt / Screenshot) *</span>
               </h3>
               <p className="text-xs text-slate-500 mt-1">
                 Upload your bank receipt in JPG, PNG, or PDF format after completing your transfer.
@@ -541,7 +531,7 @@ function RegisterForm() {
                 id="receiptUpload"
                 required
                 accept="image/*,.pdf"
-                onChange={handleFileChange}
+                onChange={handleReceiptChange}
                 className="hidden"
               />
               <label htmlFor="receiptUpload" className="cursor-pointer flex flex-col items-center">
@@ -556,13 +546,57 @@ function RegisterForm() {
                 </span>
               </label>
 
-              {filePreview && (
+              {receiptPreview && (
                 <div className="mt-4 inline-block relative border rounded-xl overflow-hidden shadow-sm max-w-[200px]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={filePreview} alt="Receipt preview" className="max-h-36 object-contain" />
+                  <img src={receiptPreview} alt="Receipt preview" className="max-h-36 object-contain" />
                 </div>
               )}
             </div>
+
+            {/* UNIBEN Student Clearance Slip Attachment */}
+            {category === 'uniben' && (
+              <div className="pt-2 border-t border-slate-200 space-y-3">
+                <div>
+                  <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-gold-600" />
+                    <span>UNIBEN Student Clearance Slip / ID Proof *</span>
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    To validate your 30% discount (₦5,950), please upload a clear photo or PDF of your UNIBEN clearance slip, course registration slip, or student ID card.
+                  </p>
+                </div>
+
+                <div className="border-2 border-dashed border-gold-300 hover:border-gold-500 bg-gold-50/30 rounded-2xl p-5 text-center transition">
+                  <input
+                    type="file"
+                    id="clearanceUpload"
+                    required
+                    accept="image/*,.pdf"
+                    onChange={handleClearanceChange}
+                    className="hidden"
+                  />
+                  <label htmlFor="clearanceUpload" className="cursor-pointer flex flex-col items-center">
+                    <div className="w-10 h-10 rounded-full bg-gold-100 text-gold-800 flex items-center justify-center mb-2">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800">
+                      {clearanceFile ? clearanceFile.name : 'Click to upload UNIBEN clearance slip or student ID'}
+                    </span>
+                    <span className="text-[11px] text-slate-400 mt-1">
+                      JPG, PNG, or PDF format
+                    </span>
+                  </label>
+
+                  {clearancePreview && (
+                    <div className="mt-3 inline-block relative border rounded-xl overflow-hidden shadow-sm max-w-[180px]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={clearancePreview} alt="Clearance slip preview" className="max-h-32 object-contain" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             <button
               type="submit"

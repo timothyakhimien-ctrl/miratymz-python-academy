@@ -8,6 +8,7 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const trackingId = formData.get('trackingId') as string;
     const file = formData.get('file') as File;
+    const clearanceFile = formData.get('clearanceFile') as File | null;
 
     if (!trackingId || !file) {
       return NextResponse.json(
@@ -62,14 +63,44 @@ export async function POST(request: Request) {
 
     const publicUrl = urlData.publicUrl;
 
+    // Optional clearance slip upload for UNIBEN students
+    let clearanceUrl: string | null = null;
+    if (clearanceFile && clearanceFile.size > 0) {
+      try {
+        const cBytes = await clearanceFile.arrayBuffer();
+        const cBuffer = Buffer.from(cBytes);
+        const cExt = clearanceFile.name.split('.').pop() || 'jpg';
+        const cFileName = `clearance_${trackingId}_${Date.now()}.${cExt}`;
+        const { error: cUploadErr } = await supabase.storage
+          .from('receipts')
+          .upload(cFileName, cBuffer, {
+            contentType: clearanceFile.type || 'image/jpeg',
+            upsert: true,
+          });
+        if (!cUploadErr) {
+          const { data: cUrlData } = supabase.storage
+            .from('receipts')
+            .getPublicUrl(cFileName);
+          clearanceUrl = cUrlData.publicUrl;
+        }
+      } catch (cErr) {
+        console.warn('Clearance upload warning:', cErr);
+      }
+    }
+
     // Update registration to 'Under Review'
+    const updatePayload: Record<string, any> = {
+      receipt_url: publicUrl,
+      status: 'Under Review',
+      paid_at: new Date().toISOString(),
+    };
+    if (clearanceUrl) {
+      updatePayload.declined_reason = `UNIBEN Clearance Slip: ${clearanceUrl}`;
+    }
+
     const { error: updateErr } = await supabase
       .from('registrations')
-      .update({
-        receipt_url: publicUrl,
-        status: 'Under Review',
-        paid_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('tracking_id', trackingId);
 
     if (updateErr) {

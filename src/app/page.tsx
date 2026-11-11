@@ -135,9 +135,9 @@ export default function HomePage() {
                 <div className="bg-brand-900/60 border border-brand-700/50 p-2.5 sm:p-3 rounded-xl">
                   <div className="flex items-center gap-1.5 sm:gap-2 text-gold-400 font-bold text-xs sm:text-sm">
                     <Laptop className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                    <span>Hybrid Mode</span>
+                    <span>Online Learning</span>
                   </div>
-                  <span className="text-[11px] sm:text-xs text-slate-400 block mt-0.5">Online &amp; Physical</span>
+                  <span className="text-[11px] sm:text-xs text-slate-400 block mt-0.5">Live Interactive Classes</span>
                 </div>
 
                 <div className="bg-brand-900/60 border border-brand-700/50 p-2.5 sm:p-3 rounded-xl">

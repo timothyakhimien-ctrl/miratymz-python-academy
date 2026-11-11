@@ -53,7 +53,7 @@ export async function POST(request: Request) {
         level: level || 'N/A',
         category: isUniben ? 'uniben' : 'general',
         amount,
-        learning_mode: learningMode || 'hybrid',
+        learning_mode: 'online',
         status: 'Pending',
       })
       .select()
