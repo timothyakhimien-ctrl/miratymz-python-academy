@@ -51,14 +51,14 @@ export async function GET(request: Request) {
 
     const stats = {
       total: allRecords?.length || 0,
-      pending: allRecords?.filter((r) => r.status === 'Pending').length || 0,
-      underReview: allRecords?.filter((r) => r.status === 'Under Review').length || 0,
-      approved: allRecords?.filter((r) => r.status === 'Approved').length || 0,
-      declined: allRecords?.filter((r) => r.status === 'Declined').length || 0,
+      pending: allRecords?.filter((r: any) => r.status === 'Pending').length || 0,
+      underReview: allRecords?.filter((r: any) => r.status === 'Under Review').length || 0,
+      approved: allRecords?.filter((r: any) => r.status === 'Approved').length || 0,
+      declined: allRecords?.filter((r: any) => r.status === 'Declined').length || 0,
       totalRevenue:
         allRecords
-          ?.filter((r) => r.status === 'Approved')
-          .reduce((sum, r) => sum + (r.amount || 0), 0) || 0,
+          ?.filter((r: any) => r.status === 'Approved')
+          .reduce((sum: number, r: any) => sum + (r.amount || 0), 0) || 0,
     };
 
     return NextResponse.json({
