@@ -44,19 +44,21 @@ export async function GET(request: Request) {
 
     adminPhone = settings?.support_phone || '2348100000000';
 
+    // Fetch the latest uploaded PDF guide so students can download the curriculum guide
+    const { data: files } = await supabase.storage.from('receipts').list();
+    const guideFiles = files?.filter((f: any) => f.name.includes('python_course_guide')) || [];
+    if (guideFiles.length > 0) {
+      guideFiles.sort((a: any, b: any) => {
+        const dateA = a.created_at || a.name;
+        const dateB = b.created_at || b.name;
+        return dateB.localeCompare(dateA);
+      });
+      const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(guideFiles[0].name);
+      courseGuideUrl = urlData.publicUrl;
+    }
+
     if (record.status === 'Approved' || record.status === 'Added to VIP Group') {
       whatsappLink = settings?.whatsapp_group_link || null;
-
-      // Fetch the latest uploaded PDF guide from storage
-      const { data: files } = await supabase.storage.from('receipts').list('', {
-        limit: 10,
-        search: 'python_course_guide',
-      });
-      if (files && files.length > 0) {
-        files.sort((a: any, b: any) => (b.created_at || '').localeCompare(a.created_at || ''));
-        const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(files[0].name);
-        courseGuideUrl = urlData.publicUrl;
-      }
     }
 
     if (record.status === 'Pending' || record.status === 'Declined') {

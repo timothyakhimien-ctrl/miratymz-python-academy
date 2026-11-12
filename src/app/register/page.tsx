@@ -788,6 +788,15 @@ function RegisterForm() {
           </div>
 
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a
+              href="/api/course-guide/download"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto bg-slate-900 hover:bg-black text-white font-extrabold px-6 py-3.5 rounded-xl shadow transition flex items-center justify-center gap-2 text-sm"
+            >
+              <FileText className="w-4 h-4 text-gold-400" />
+              <span>Download 8-Week Course Guide (PDF)</span>
+            </a>
             <Link
               href={`/status?q=${trackingId}`}
               className="w-full sm:w-auto bg-brand-800 hover:bg-brand-900 text-white font-extrabold px-8 py-3.5 rounded-xl shadow transition"

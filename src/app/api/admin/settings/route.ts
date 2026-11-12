@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServiceSupabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 // Helper to verify admin token header
 function verifyAdmin(request: Request): boolean {
@@ -30,24 +31,41 @@ export async function GET(request: Request) {
     }
 
     // List any course guide uploaded in storage
-    const { data: files } = await supabase.storage.from('receipts').list('', {
-      limit: 10,
-      search: 'python_course_guide',
-    });
+    const { data: files } = await supabase.storage.from('receipts').list();
+    const guideFiles = files?.filter((f: any) => f.name.includes('python_course_guide')) || [];
     let latestGuideUrl = null;
-    if (files && files.length > 0) {
-      files.sort((a: any, b: any) => (b.created_at || '').localeCompare(a.created_at || ''));
-      const { data: publicUrlData } = supabase.storage.from('receipts').getPublicUrl(files[0].name);
+    let latestGuideName = null;
+    let latestGuideDate = null;
+
+    if (guideFiles && guideFiles.length > 0) {
+      guideFiles.sort((a: any, b: any) => {
+        const dateA = a.created_at || a.name;
+        const dateB = b.created_at || b.name;
+        return dateB.localeCompare(dateA);
+      });
+      const activeFile = guideFiles[0];
+      const { data: publicUrlData } = supabase.storage.from('receipts').getPublicUrl(activeFile.name);
       latestGuideUrl = publicUrlData.publicUrl;
+      latestGuideName = activeFile.name;
+      latestGuideDate = activeFile.created_at;
     }
 
-    return NextResponse.json({
-      success: true,
-      settings: {
-        ...settings,
-        course_guide_url: latestGuideUrl,
+    return NextResponse.json(
+      {
+        success: true,
+        settings: {
+          ...settings,
+          course_guide_url: latestGuideUrl,
+          course_guide_name: latestGuideName,
+          course_guide_date: latestGuideDate,
+        },
       },
-    });
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        },
+      }
+    );
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

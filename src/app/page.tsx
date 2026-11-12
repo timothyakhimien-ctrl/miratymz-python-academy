@@ -17,6 +17,7 @@ import {
   Shield,
   Layers,
   Award,
+  FileText,
 } from 'lucide-react';
 
 export default function HomePage() {
@@ -167,12 +168,22 @@ export default function HomePage() {
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                 </Link>
 
-                <Link
-                  href="/status"
+                <a
+                  href="/api/course-guide/download"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-full sm:w-auto bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs sm:text-sm px-5 sm:px-6 py-3.5 sm:py-4 rounded-xl transition flex items-center justify-center gap-2"
                 >
+                  <FileText className="w-4 h-4 text-gold-400 shrink-0" />
+                  <span>Download Course Guide (PDF)</span>
+                </a>
+
+                <Link
+                  href="/status"
+                  className="w-full sm:w-auto bg-brand-900/80 hover:bg-brand-900 border border-brand-700 text-slate-300 font-bold text-xs sm:text-sm px-4 py-3.5 sm:py-4 rounded-xl transition flex items-center justify-center gap-2"
+                >
                   <Shield className="w-4 h-4 text-brand-400 shrink-0" />
-                  <span>Check Payment Status</span>
+                  <span>Status</span>
                 </Link>
               </div>
 
@@ -345,6 +356,30 @@ export default function HomePage() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Course Guide PDF Download Callout */}
+        <div className="mt-10 bg-gradient-to-r from-brand-950 via-slate-900 to-brand-950 border border-brand-800 rounded-3xl p-6 sm:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+          <div className="space-y-1 text-center md:text-left">
+            <span className="text-xs font-black uppercase tracking-wider text-gold-400 block">
+              Official Syllabus &amp; Roadmap
+            </span>
+            <h3 className="text-xl font-black text-white">
+              Want the full printable curriculum and exercise guide?
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
+              Download the official 8-week syllabus guide uploaded by our faculty — includes setup instructions, weekly learning targets, and project specifications.
+            </p>
+          </div>
+          <a
+            href="/api/course-guide/download"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full md:w-auto bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-xs sm:text-sm px-6 py-3.5 rounded-xl transition shadow-lg whitespace-nowrap flex items-center justify-center gap-2"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Download Course Guide PDF &rarr;</span>
+          </a>
         </div>
       </section>
 

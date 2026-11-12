@@ -225,8 +225,11 @@ export default function AdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to upload PDF');
 
-      setBankSettings((prev) => ({ ...prev, courseGuideUrl: data.url }));
-      showToast('Course Guide PDF uploaded & live for paid students!');
+      setBankSettings((prev) => ({
+        ...prev,
+        courseGuideUrl: `${data.url}?_t=${Date.now()}`,
+      }));
+      showToast('Course Guide PDF uploaded & published live across all pages!');
       setMaterialFile(null);
     } catch (err: any) {
       alert(err.message || 'Error uploading material');
@@ -235,8 +238,8 @@ export default function AdminPage() {
     }
   };
 
-  // Action on registration (Approve / Added to VIP / Decline)
-  const handleAction = async (trackingId: string, action: 'approve' | 'added_to_vip' | 'decline') => {
+  // Action on registration (Approve / Added to VIP / Decline / Delete)
+  const handleAction = async (trackingId: string, action: 'approve' | 'added_to_vip' | 'decline' | 'delete') => {
     if (!token) return;
     let reason = '';
     if (action === 'decline') {
@@ -247,6 +250,26 @@ export default function AdminPage() {
       if (promptReason === null) return; // cancelled
       reason = promptReason;
     }
+    if (action === 'delete') {
+      if (!confirm(`Are you sure you want to permanently delete registration ${trackingId}? This will remove it from the system.`)) {
+        return;
+      }
+    }
+
+    // Optimistic local state update so the admin sees the action instantaneously
+    setRegistrations((prev) => {
+      if (action === 'delete') {
+        return prev.filter((r) => r.tracking_id !== trackingId);
+      }
+      return prev.map((r) => {
+        if (r.tracking_id === trackingId) {
+          if (action === 'approve') return { ...r, status: 'Approved', approved_at: new Date().toISOString(), declined_reason: null };
+          if (action === 'added_to_vip') return { ...r, status: 'Added to VIP Group' };
+          if (action === 'decline') return { ...r, status: 'Declined', declined_reason: reason };
+        }
+        return r;
+      });
+    });
 
     try {
       const res = await fetch('/api/admin/action', {
@@ -262,9 +285,10 @@ export default function AdminPage() {
       if (!res.ok) throw new Error(data.error || 'Action failed');
 
       showToast(data.message || `Registration ${trackingId} updated.`);
-      fetchRegistrations();
+      await fetchRegistrations();
     } catch (err: any) {
       alert(err.message || 'Error performing action');
+      await fetchRegistrations();
     }
   };
 
@@ -672,7 +696,7 @@ export default function AdminPage() {
                               className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition"
                               title="Confirm payment and grant class admission"
                             >
-                              Approve
+                              {reg.status === 'Declined' ? 'Re-Approve' : 'Approve'}
                             </button>
                           )}
 
@@ -685,6 +709,14 @@ export default function AdminPage() {
                               Decline
                             </button>
                           )}
+
+                          <button
+                            onClick={() => handleAction(reg.tracking_id, 'delete')}
+                            className="bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 p-1.5 rounded-lg transition inline-flex items-center"
+                            title="Permanently delete registration"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -855,18 +887,26 @@ export default function AdminPage() {
           </div>
 
           {bankSettings.courseGuideUrl && (
-            <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl flex items-center justify-between text-xs text-emerald-950">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Current Active PDF: <strong>Course Guide Loaded in Supabase Storage</strong></span>
+            <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-emerald-950">
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div>
+                  <span className="font-bold text-emerald-900 block">
+                    Active Course Guide PDF Published Live
+                  </span>
+                  <span className="text-slate-500 text-[11px]">
+                    Available to all students on Home Page, Registration Confirmation, and Status Portal.
+                  </span>
+                </div>
               </div>
               <a
                 href={bankSettings.courseGuideUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-bold text-emerald-800 underline hover:text-emerald-950"
+                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3.5 py-1.5 rounded-lg transition text-[11px] inline-flex items-center gap-1 shadow-sm shrink-0"
               >
-                Preview File &rarr;
+                <Eye className="w-3.5 h-3.5" />
+                <span>Preview Active PDF &rarr;</span>
               </a>
             </div>
           )}
