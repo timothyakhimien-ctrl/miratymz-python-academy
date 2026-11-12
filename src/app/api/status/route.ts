@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServiceSupabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET(request: Request) {
   try {
@@ -69,29 +70,37 @@ export async function GET(request: Request) {
       };
     }
 
-    return NextResponse.json({
-      success: true,
-      registration: {
-        trackingId: record.tracking_id,
-        fullName: record.full_name,
-        email: record.email,
-        phone: record.phone,
-        institution: record.institution,
-        department: record.department,
-        category: record.category,
-        amount: record.amount,
-        status: record.status,
-        receiptUrl: record.receipt_url,
-        declinedReason: record.declined_reason,
-        createdAt: record.created_at,
-        paidAt: record.paid_at,
-        approvedAt: record.approved_at,
+    return NextResponse.json(
+      {
+        success: true,
+        registration: {
+          trackingId: record.tracking_id,
+          fullName: record.full_name,
+          email: record.email,
+          phone: record.phone,
+          institution: record.institution,
+          department: record.department,
+          category: record.category,
+          amount: record.amount,
+          status: record.status,
+          receiptUrl: record.receipt_url,
+          declinedReason: record.declined_reason,
+          createdAt: record.created_at,
+          paidAt: record.paid_at,
+          approvedAt: record.approved_at,
+        },
+        whatsappLink,
+        adminPhone,
+        courseGuideUrl,
+        bankDetails,
       },
-      whatsappLink,
-      adminPhone,
-      courseGuideUrl,
-      bankDetails,
-    });
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+          'Surrogate-Control': 'no-store',
+        },
+      }
+    );
   } catch (err: any) {
     console.error('Status Query Error:', err);
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });

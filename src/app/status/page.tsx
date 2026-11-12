@@ -49,7 +49,9 @@ function StatusContent() {
     setResult(null);
 
     try {
-      const res = await fetch(`/api/status?q=${encodeURIComponent(searchTerm.trim())}`);
+      const res = await fetch(`/api/status?q=${encodeURIComponent(searchTerm.trim())}&_t=${Date.now()}`, {
+        cache: 'no-store',
+      });
       const data = await res.json();
 
       if (!res.ok) {
