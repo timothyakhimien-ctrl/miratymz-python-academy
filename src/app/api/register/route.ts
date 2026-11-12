@@ -3,6 +3,7 @@ import { getServiceSupabase } from '@/lib/supabase';
 import { generateTrackingId } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function POST(request: Request) {
   try {
@@ -15,12 +16,24 @@ export async function POST(request: Request) {
       department,
       level,
       category,
-      learningMode,
+      learningGoals,
+      learning_goals,
     } = body;
 
-    if (!fullName || !email || !phone || !institution) {
+    // Core validation: Full Name, Email, and Phone are always required
+    if (!fullName || !fullName.trim() || !email || !email.trim() || !phone || !phone.trim()) {
       return NextResponse.json(
-        { error: 'Please provide all required fields (Full Name, Email, Phone, Institution).' },
+        { error: 'Please provide all required fields: Full Name, Email Address, and WhatsApp Phone Number.' },
+        { status: 400 }
+      );
+    }
+
+    const isUniben = category === 'uniben';
+
+    // Institution is required only for UNIBEN students
+    if (isUniben && (!institution || !institution.trim())) {
+      return NextResponse.json(
+        { error: 'Please enter your institution (e.g. University of Benin).' },
         { status: 400 }
       );
     }
@@ -36,33 +49,55 @@ export async function POST(request: Request) {
 
     const unibenFee = settings?.uniben_fee || 5950;
     const generalFee = settings?.general_fee || 10000;
-    const isUniben = category === 'uniben';
     const amount = isUniben ? unibenFee : generalFee;
 
     const trackingId = generateTrackingId();
+    const effectiveGoals = (learningGoals || learning_goals || '').trim();
 
-    const { data, error } = await supabase
+    // Prepare insert record
+    const insertPayload: Record<string, any> = {
+      tracking_id: trackingId,
+      full_name: fullName.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone.trim(),
+      institution: isUniben ? institution.trim() : 'General Public',
+      department: isUniben ? (department?.trim() || 'General') : 'General',
+      level: isUniben ? (level || '100 Level') : 'General',
+      category: isUniben ? 'uniben' : 'general',
+      amount,
+      learning_mode: 'online',
+      status: 'Pending',
+    };
+
+    if (effectiveGoals) {
+      insertPayload.learning_goals = effectiveGoals;
+    }
+
+    // Attempt insertion
+    let { data, error } = await supabase
       .from('registrations')
-      .insert({
-        tracking_id: trackingId,
-        full_name: fullName.trim(),
-        email: email.trim().toLowerCase(),
-        phone: phone.trim(),
-        institution: institution.trim(),
-        department: department?.trim() || 'General',
-        level: level || 'N/A',
-        category: isUniben ? 'uniben' : 'general',
-        amount,
-        learning_mode: 'online',
-        status: 'Pending',
-      })
+      .insert(insertPayload)
       .select()
       .single();
+
+    // Graceful schema fallback: if learning_goals column does not yet exist in Supabase DB,
+    // retry insert without that column so the student's registration is never blocked.
+    if (error && (error.code === '42703' || error.message?.includes('learning_goals')) && insertPayload.learning_goals) {
+      console.warn('learning_goals column missing in Supabase schema. Retrying without it...');
+      delete insertPayload.learning_goals;
+      const retry = await supabase
+        .from('registrations')
+        .insert(insertPayload)
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error('Registration insertion error:', error);
       return NextResponse.json(
-        { error: 'Could not create registration record. Please try again.' },
+        { error: 'Could not create registration record. ' + error.message },
         { status: 500 }
       );
     }
@@ -73,7 +108,7 @@ export async function POST(request: Request) {
       amount,
       status: 'Pending',
       bankDetails: {
-        bankName: settings?.bank_name || 'OPay',
+        bankName: settings?.bank_name || 'OPay / PalmPay',
         accountNumber: settings?.account_number || '8100000000',
         accountName: settings?.account_name || 'MiraTymz Programming Academy',
       },

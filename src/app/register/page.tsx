@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Clock,
   Sparkles,
+  Target,
 } from 'lucide-react';
 import { formatNaira } from '@/lib/utils';
 
@@ -41,6 +42,7 @@ function RegisterForm() {
   const [institution, setInstitution] = useState('University of Benin (UNIBEN)');
   const [department, setDepartment] = useState('');
   const [level, setLevel] = useState('200 Level');
+  const [learningGoals, setLearningGoals] = useState('');
   const [category, setCategory] = useState<'uniben' | 'general'>(
     preCategory === 'general' ? 'general' : 'uniben'
   );
@@ -77,10 +79,11 @@ function RegisterForm() {
           fullName,
           email,
           phone,
-          institution,
-          department,
-          level,
+          institution: category === 'uniben' ? institution : 'General Public',
+          department: category === 'uniben' ? department : 'General',
+          level: category === 'uniben' ? level : 'General',
           category,
+          learningGoals,
           learningMode: 'online',
         }),
       });
@@ -330,7 +333,7 @@ function RegisterForm() {
                     ₦10,000
                   </div>
                   <p className="text-xs text-slate-500 mt-1 font-medium">
-                    &bull; External Students &amp; Professionals
+                    &bull; Open to Everyone (No University Affiliation Required)
                   </p>
                 </div>
               </label>
@@ -373,7 +376,7 @@ function RegisterForm() {
               </div>
             </div>
 
-            <div>
+            <div className={category === 'general' ? 'sm:col-span-2' : ''}>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 WhatsApp Phone Number *
               </label>
@@ -393,55 +396,84 @@ function RegisterForm() {
               </span>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Institution / University *
-              </label>
-              <div className="relative">
-                <Building className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. University of Benin (UNIBEN)"
-                  value={institution}
-                  onChange={(e) => setInstitution(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
-                />
-              </div>
-            </div>
+            {/* UNIBEN Specific Fields: Institution, Department, Level */}
+            {category === 'uniben' && (
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Institution / University *
+                  </label>
+                  <div className="relative">
+                    <Building className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. University of Benin (UNIBEN)"
+                      value={institution}
+                      onChange={(e) => setInstitution(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+                    />
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Department / Faculty
-              </label>
-              <div className="relative">
-                <BookOpen className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                <input
-                  type="text"
-                  placeholder="e.g. Computer Science / Engineering"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
-                />
-              </div>
-            </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Department / Faculty
+                  </label>
+                  <div className="relative">
+                    <BookOpen className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                    <input
+                      type="text"
+                      placeholder="e.g. Computer Science / Engineering"
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+                    />
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Academic Level
-              </label>
-              <select
-                value={level}
-                onChange={(e) => setLevel(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent bg-white"
-              >
-                <option value="100 Level">100 Level</option>
-                <option value="200 Level">200 Level</option>
-                <option value="300 Level">300 Level</option>
-                <option value="400 Level">400 Level</option>
-                <option value="500 Level">500 Level</option>
-                <option value="Graduate / Professional">Graduate / Working Professional</option>
-              </select>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Academic Level
+                  </label>
+                  <select
+                    value={level}
+                    onChange={(e) => setLevel(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent bg-white"
+                  >
+                    <option value="100 Level">100 Level</option>
+                    <option value="200 Level">200 Level</option>
+                    <option value="300 Level">300 Level</option>
+                    <option value="400 Level">400 Level</option>
+                    <option value="500 Level">500 Level</option>
+                    <option value="Graduate / Professional">Graduate / Working Professional</option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            {/* Optional Learning Goals / Targets TextArea for all categories */}
+            <div className="sm:col-span-2 pt-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 text-brand-700" />
+                  <span>What do you want to achieve after this Python course?</span>
+                  <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <span className="text-[11px] text-slate-400">
+                  {learningGoals.length} characters (1,500 recommended)
+                </span>
+              </div>
+              <textarea
+                rows={5}
+                placeholder="Tell us what you want to achieve after this course (e.g. automated scripting, software engineering, machine learning, career progression, or personal projects)..."
+                value={learningGoals}
+                onChange={(e) => setLearningGoals(e.target.value)}
+                className="w-full px-4 py-3 rounded-2xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent resize-y"
+              />
+              <span className="text-[11px] text-slate-500 mt-1 block">
+                Optional – share your specific targets so our mentors can personalize your learning path and project assignments.
+              </span>
             </div>
           </div>
 

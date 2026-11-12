@@ -133,11 +133,12 @@ export default function AdminPage() {
     setDataLoading(true);
 
     try {
-      const url = `/api/admin/registrations?status=${statusFilter}&search=${encodeURIComponent(
+      const url = `/api/admin/registrations?status=${encodeURIComponent(statusFilter)}&search=${encodeURIComponent(
         searchTerm
-      )}`;
+      )}&_t=${Date.now()}`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
       });
       const data = await res.json();
       if (res.ok) {
@@ -559,6 +560,16 @@ export default function AdminPage() {
                               (Chat WhatsApp)
                             </a>
                           </div>
+                          {reg.learning_goals && (
+                            <div className="mt-1.5 p-2 rounded-lg bg-amber-50/80 border border-amber-200/70 text-[11px] text-amber-950 max-w-xs">
+                              <span className="font-bold block text-[9px] uppercase tracking-wider text-amber-800">
+                                Learning Goal:
+                              </span>
+                              <p className="line-clamp-2 hover:line-clamp-none transition-all cursor-pointer" title={reg.learning_goals}>
+                                {reg.learning_goals}
+                              </p>
+                            </div>
+                          )}
                         </td>
 
                         <td className="py-3.5 px-4">
@@ -566,17 +577,19 @@ export default function AdminPage() {
                             className={`inline-block font-bold text-[10px] px-2 py-0.5 rounded-full uppercase ${
                               reg.category === 'uniben'
                                 ? 'bg-brand-100 text-brand-900'
-                                : 'bg-slate-200 text-slate-700'
+                                : 'bg-slate-200 text-slate-800'
                             }`}
                           >
-                            {reg.category === 'uniben' ? 'UNIBEN 30% Off' : 'General'}
+                            {reg.category === 'uniben' ? 'UNIBEN 30% Off' : 'General Public'}
                           </span>
                           <div className="font-semibold text-slate-800 text-[11px] mt-1">
-                            {reg.institution}
+                            {reg.institution === 'General Public' ? 'General Enrollment' : reg.institution}
                           </div>
-                          <div className="text-[10px] text-slate-400">
-                            {reg.department} &bull; {reg.level}
-                          </div>
+                          {reg.category === 'uniben' && (
+                            <div className="text-[10px] text-slate-400">
+                              {reg.department} &bull; {reg.level}
+                            </div>
+                          )}
                         </td>
 
                         <td className="py-3.5 px-4 font-extrabold text-slate-900 text-sm">

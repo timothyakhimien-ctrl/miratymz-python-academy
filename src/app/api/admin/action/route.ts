@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServiceSupabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 function verifyAdmin(request: Request): boolean {
   const authHeader = request.headers.get('authorization');
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
         .single();
 
       if (error) {
-        return NextResponse.json({ error: 'Failed to update VIP status' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to update VIP status: ' + error.message }, { status: 500 });
       }
 
       return NextResponse.json({
@@ -51,19 +52,31 @@ export async function POST(request: Request) {
     }
 
     if (action === 'approve') {
+      // Check if registration currently has a clearance slip stored in declined_reason
+      const { data: currentReg } = await supabase
+        .from('registrations')
+        .select('declined_reason')
+        .eq('tracking_id', trackingId)
+        .single();
+
+      const preservedClearance =
+        currentReg?.declined_reason?.includes('UNIBEN Clearance Slip:')
+          ? currentReg.declined_reason
+          : null;
+
       const { data, error } = await supabase
         .from('registrations')
         .update({
           status: 'Approved',
           approved_at: new Date().toISOString(),
-          declined_reason: null,
+          declined_reason: preservedClearance,
         })
         .eq('tracking_id', trackingId)
         .select()
         .single();
 
       if (error) {
-        return NextResponse.json({ error: 'Failed to approve registration' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to approve registration: ' + error.message }, { status: 500 });
       }
 
       return NextResponse.json({
@@ -85,7 +98,7 @@ export async function POST(request: Request) {
         .single();
 
       if (error) {
-        return NextResponse.json({ error: 'Failed to decline registration' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to decline registration: ' + error.message }, { status: 500 });
       }
 
       return NextResponse.json({
@@ -98,7 +111,7 @@ export async function POST(request: Request) {
     if (action === 'delete') {
       const { error } = await supabase.from('registrations').delete().eq('tracking_id', trackingId);
       if (error) {
-        return NextResponse.json({ error: 'Failed to delete record' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to delete record: ' + error.message }, { status: 500 });
       }
       return NextResponse.json({ success: true, message: 'Record deleted.' });
     }
