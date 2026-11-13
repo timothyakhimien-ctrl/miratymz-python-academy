@@ -21,6 +21,7 @@ import {
   Clock,
   Sparkles,
   Target,
+  Lock,
 } from 'lucide-react';
 import { formatNaira } from '@/lib/utils';
 
@@ -552,17 +553,17 @@ function RegisterForm() {
             )}
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 pt-2">
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-sm hover:bg-slate-50 transition"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-sm hover:bg-slate-50 transition text-center"
             >
               &larr; Back to Details
             </button>
             <button
               type="submit"
-              className="w-full sm:flex-1 bg-brand-800 hover:bg-brand-900 text-white font-extrabold text-base py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2"
+              className="w-full sm:flex-1 bg-brand-800 hover:bg-brand-900 text-white font-extrabold text-sm sm:text-base py-3.5 sm:py-4 px-6 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-center"
             >
               <span>Continue to Payment &rarr;</span>
             </button>
@@ -690,25 +691,25 @@ function RegisterForm() {
               )}
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setStep(category === 'uniben' ? 2 : 1)}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-sm hover:bg-slate-50 transition"
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-sm hover:bg-slate-50 transition text-center"
               >
                 &larr; Back
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full sm:flex-1 bg-gradient-to-r from-brand-800 to-emerald-900 hover:from-brand-900 hover:to-emerald-950 text-white font-extrabold text-base py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full sm:flex-1 bg-gradient-to-r from-brand-800 to-emerald-900 hover:from-brand-900 hover:to-emerald-950 text-white font-extrabold text-sm sm:text-base py-3.5 sm:py-4 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 text-center"
               >
                 {loading ? (
                   <span>Uploading Receipt &amp; Submitting...</span>
                 ) : (
                   <>
-                    <CheckCircle2 className="w-5 h-5 text-brand-400" />
-                    <span>I Have Paid &bull; Submit Proof (Done)</span>
+                    <CheckCircle2 className="w-5 h-5 text-brand-400 shrink-0" />
+                    <span>I Have Paid &bull; Submit Proof</span>
                   </>
                 )}
               </button>
@@ -787,25 +788,28 @@ function RegisterForm() {
             </p>
           </div>
 
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <a
-              href="/api/course-guide/download"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto bg-slate-900 hover:bg-black text-white font-extrabold px-6 py-3.5 rounded-xl shadow transition flex items-center justify-center gap-2 text-sm"
-            >
-              <FileText className="w-4 h-4 text-gold-400" />
-              <span>Download 8-Week Course Guide (PDF)</span>
-            </a>
+          {/* Locked Study Package Callout */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 max-w-md mx-auto text-left text-xs text-slate-600 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0 text-amber-700 mt-0.5">
+              <Lock className="w-4 h-4" />
+            </div>
+            <div>
+              <strong className="text-slate-900 block font-bold text-sm mb-0.5">Complimentary Study Package (PDF)</strong>
+              <span>Will unlock automatically on your status tracking page immediately upon approval of your transfer.</span>
+            </div>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 max-w-md mx-auto w-full">
             <Link
               href={`/status?q=${trackingId}`}
-              className="w-full sm:w-auto bg-brand-800 hover:bg-brand-900 text-white font-extrabold px-8 py-3.5 rounded-xl shadow transition"
+              className="w-full sm:flex-1 bg-brand-800 hover:bg-brand-900 text-white font-extrabold text-sm sm:text-base py-3.5 sm:py-4 px-6 rounded-xl shadow transition text-center flex items-center justify-center gap-1.5"
             >
-              Check My Admission Status Now &rarr;
+              <span>Check Admission Status Now</span>
+              <span>&rarr;</span>
             </Link>
             <Link
               href="/"
-              className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-6 py-3.5 rounded-xl transition"
+              className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm py-3.5 sm:py-4 px-6 rounded-xl transition text-center"
             >
               Back to Home
             </Link>

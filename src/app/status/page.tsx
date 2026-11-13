@@ -18,6 +18,7 @@ import {
   FileText,
   CreditCard,
   Upload,
+  Lock,
 } from 'lucide-react';
 import { formatNaira } from '@/lib/utils';
 
@@ -404,31 +405,29 @@ function StatusContent() {
             </div>
           </div>
 
-          {/* Complimentary Study Package Download Box for any registered student */}
-          {result.courseGuideUrl && (
-            <div className="bg-slate-900 text-white p-4 sm:p-5 rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 shadow">
+          {/* Locked Study Package Indicator for Unapproved Students */}
+          {result.registration.status !== 'Approved' && result.registration.status !== 'Added to VIP Group' && (
+            <div className="bg-slate-900/90 text-white p-4 sm:p-5 rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 shadow">
               <div className="flex items-center gap-3 text-left">
-                <div className="w-10 h-10 rounded-xl bg-gold-500/20 text-gold-400 flex items-center justify-center shrink-0">
-                  <FileText className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-xl bg-slate-800 text-gold-400 flex items-center justify-center shrink-0 border border-slate-700">
+                  <Lock className="w-5 h-5 text-gold-400" />
                 </div>
                 <div>
                   <span className="text-[10px] font-black text-gold-400 uppercase tracking-wider block">
-                    Complimentary Study Package
+                    Complimentary Study Package (PDF)
                   </span>
-                  <strong className="text-xs sm:text-sm text-white">8-Week Python Mastery Guide (PDF)</strong>
+                  <strong className="text-xs sm:text-sm text-white">8-Week Python Mastery Guide &amp; Resources</strong>
                   <p className="text-[11px] text-slate-400">
-                    Syllabus blueprint, course notes, setup guide &amp; weekly exercises.
+                    {result.registration.status === 'Under Review'
+                      ? 'Payment under review — download access unlocks here automatically upon approval.'
+                      : 'Access locked — available to download immediately upon payment confirmation.'}
                   </p>
                 </div>
               </div>
-              <a
-                href={result.courseGuideUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-xs px-5 py-2.5 rounded-xl shadow transition text-center whitespace-nowrap"
-              >
-                Download PDF Guide &rarr;
-              </a>
+              <div className="w-full sm:w-auto bg-slate-800/80 text-slate-400 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-700 text-center whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0">
+                <Lock className="w-3.5 h-3.5 text-amber-500" />
+                <span>Unlocks Upon Approval</span>
+              </div>
             </div>
           )}
         </div>
