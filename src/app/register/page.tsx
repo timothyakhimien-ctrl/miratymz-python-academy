@@ -454,13 +454,13 @@ function RegisterForm() {
 
             {/* Optional Learning Goals / Targets TextArea for all categories */}
             <div className="sm:col-span-2 pt-2">
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <Target className="w-3.5 h-3.5 text-brand-700" />
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-1.5">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5 flex-wrap">
+                  <Target className="w-3.5 h-3.5 text-brand-700 shrink-0" />
                   <span>What do you want to achieve after this Python course?</span>
-                  <span className="text-slate-400 font-normal">(Optional)</span>
+                  <span className="text-slate-400 font-normal text-[11px]">(Optional)</span>
                 </label>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[11px] text-slate-400 sm:text-right shrink-0">
                   {learningGoals.length} characters (1,500 recommended)
                 </span>
               </div>
@@ -471,7 +471,7 @@ function RegisterForm() {
                 onChange={(e) => setLearningGoals(e.target.value)}
                 className="w-full px-4 py-3 rounded-2xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent resize-y"
               />
-              <span className="text-[11px] text-slate-500 mt-1 block">
+              <span className="text-[11px] text-slate-500 mt-1 block leading-relaxed">
                 Optional – share your specific targets so our mentors can personalize your learning path and project assignments.
               </span>
             </div>
@@ -576,20 +576,20 @@ function RegisterForm() {
       {step === 3 && (
         <div className="space-y-6">
           {/* Tracking ID Header Card */}
-          <div className="bg-brand-950 text-white p-6 rounded-3xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-widest text-gold-400 block">
+          <div className="bg-brand-950 text-white p-5 sm:p-6 rounded-3xl shadow-xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+            <div className="text-left w-full sm:w-auto">
+              <span className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-gold-400 block">
                 Your Unique Tracking Reference
               </span>
-              <div className="text-3xl font-black tracking-wider text-white mt-1">
+              <div className="text-2xl sm:text-3xl font-black tracking-wider text-white mt-1 font-mono">
                 {trackingId}
               </div>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-[11px] sm:text-xs text-slate-400 mt-1">
                 Keep this code safe to check your admission status anytime.
               </p>
             </div>
-            <div className="text-right sm:text-right w-full sm:w-auto bg-brand-900/60 p-4 rounded-2xl border border-brand-800">
-              <span className="text-xs text-slate-300 block">Amount to Transfer:</span>
+            <div className="w-full sm:w-auto bg-brand-900/60 p-3.5 sm:p-4 rounded-2xl border border-brand-800 flex items-center justify-between sm:flex-col sm:items-end sm:justify-center text-left sm:text-right gap-2 sm:gap-0.5">
+              <span className="text-xs text-slate-300">Amount to Transfer:</span>
               <span className="text-2xl sm:text-3xl font-black text-gold-400">
                 {formatNaira(amount)}
               </span>

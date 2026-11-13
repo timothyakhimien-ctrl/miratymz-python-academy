@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -18,9 +19,11 @@ import {
   Layers,
   Award,
   FileText,
+  ShieldCheck,
 } from 'lucide-react';
 
 export default function HomePage() {
+  const [showGuideModal, setShowGuideModal] = useState(false);
   const curriculum = [
     {
       week: 'Week 1',
@@ -168,15 +171,14 @@ export default function HomePage() {
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                 </Link>
 
-                <a
-                  href="/api/course-guide/download"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full sm:w-auto bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs sm:text-sm px-5 sm:px-6 py-3.5 sm:py-4 rounded-xl transition flex items-center justify-center gap-2"
+                <button
+                  type="button"
+                  onClick={() => setShowGuideModal(true)}
+                  className="w-full sm:w-auto bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs sm:text-sm px-5 sm:px-6 py-3.5 sm:py-4 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:shadow"
                 >
                   <FileText className="w-4 h-4 text-gold-400 shrink-0" />
                   <span>Download Course Guide (PDF)</span>
-                </a>
+                </button>
 
                 <Link
                   href="/status"
@@ -371,15 +373,14 @@ export default function HomePage() {
               Download the official 8-week syllabus guide uploaded by our faculty — includes setup instructions, weekly learning targets, and project specifications.
             </p>
           </div>
-          <a
-            href="/api/course-guide/download"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full md:w-auto bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-xs sm:text-sm px-6 py-3.5 rounded-xl transition shadow-lg whitespace-nowrap flex items-center justify-center gap-2"
+          <button
+            type="button"
+            onClick={() => setShowGuideModal(true)}
+            className="w-full md:w-auto bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-xs sm:text-sm px-6 py-3.5 rounded-xl transition shadow-lg whitespace-nowrap flex items-center justify-center gap-2 cursor-pointer"
           >
             <FileText className="w-4 h-4" />
             <span>Download Course Guide PDF &rarr;</span>
-          </a>
+          </button>
         </div>
       </section>
 
@@ -561,6 +562,75 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      {/* ANIMATED COURSE GUIDE ACCESS POPUP MODAL */}
+      {showGuideModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-slate-200 animate-in zoom-in-95 duration-200 text-slate-900">
+            {/* Close X Button */}
+            <button
+              onClick={() => setShowGuideModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition text-sm font-bold"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+
+            {/* Icon Header */}
+            <div className="w-16 h-16 rounded-2xl bg-brand-100 text-brand-800 flex items-center justify-center mx-auto mb-4 shadow-inner">
+              <BookOpen className="w-8 h-8" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <span className="text-[11px] uppercase font-extrabold tracking-widest text-brand-700 bg-brand-50 border border-brand-200 px-3 py-1 rounded-full inline-block">
+                Exclusive Complimentary Materials
+              </span>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                Enrollment Verification Required
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+                To download the complete <strong>8-Week Python Mastery Guide</strong>, installation manuals, exercise solutions, and physical/online lecture handouts, you must first <strong>register and be approved</strong>.
+              </p>
+            </div>
+
+            {/* Benefit Highlights */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs space-y-2.5 text-left text-slate-700 my-5">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Complete week-by-week curriculum blueprint &amp; exercises</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Python &amp; VS Code step-by-step setup walkthrough</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Instant access unlocked automatically upon admin approval</span>
+              </div>
+            </div>
+
+            {/* CTAs */}
+            <div className="space-y-3">
+              <Link
+                href="/register"
+                onClick={() => setShowGuideModal(false)}
+                className="w-full bg-brand-800 hover:bg-brand-900 text-white font-extrabold text-sm py-3.5 px-6 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-center"
+              >
+                <span>Register &amp; Claim UNIBEN Subsidy (₦5,950) &rarr;</span>
+              </Link>
+              <div className="flex items-center justify-center gap-4 text-xs pt-1">
+                <Link
+                  href="/status"
+                  onClick={() => setShowGuideModal(false)}
+                  className="font-bold text-brand-700 hover:underline flex items-center gap-1"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Already registered? Check Status to Download</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
