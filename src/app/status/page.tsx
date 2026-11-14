@@ -305,9 +305,20 @@ function StatusContent() {
                     <ExternalLink className="w-3 h-3 ml-0.5" />
                   </a>
                 )}
-                <span className="text-slate-500">
-                  Please refresh this page shortly to check for final approval.
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">
+                    Please refresh this page shortly to check for final approval, or:
+                  </span>
+                  <a
+                    href={`https://wa.me/2348168575186?text=Hello%20MiraTymz%2C%20I%20am%20following%20up%20on%20my%20payment%20verification%20for%20Tracking%20ID%20${result.registration.trackingId}.`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-800 font-bold underline"
+                  >
+                    <span>Inquire via WhatsApp</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
               </div>
             </div>
           )}
@@ -370,13 +381,22 @@ function StatusContent() {
                 {result.registration.declinedReason ||
                   'Your submitted receipt could not be validated or the transfer was not confirmed in our records.'}
               </p>
-              <div className="pt-2">
+              <div className="pt-2 flex flex-wrap items-center gap-3">
                 <Link
                   href="/register"
                   className="inline-flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition shadow-sm"
                 >
                   <span>Re-submit Correct Proof of Payment</span>
                 </Link>
+                <a
+                  href={`https://wa.me/2348168575186?text=Hello%20MiraTymz%20Admissions%2C%20my%20registration%20receipt%20was%20declined%20for%20Tracking%20ID%20${result.registration.trackingId}.%20Can%20you%20please%20assist%20me%3F`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-4 py-2.5 rounded-xl transition shadow-sm"
+                >
+                  <MessageCircle className="w-4 h-4 text-emerald-600" />
+                  <span>Contact Admissions on WhatsApp &rarr;</span>
+                </a>
               </div>
             </div>
           )}

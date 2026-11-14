@@ -24,6 +24,10 @@ import {
   RefreshCw,
   Trash2,
   FileText,
+  Timer,
+  Flame,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
 import { formatNaira } from '@/lib/utils';
 
@@ -63,6 +67,17 @@ export default function AdminPage() {
     whatsappGroupLink: 'https://chat.whatsapp.com/invite/miratymz-python-vip',
     supportPhone: '+234 810 000 0000',
     courseGuideUrl: '',
+  });
+
+  // Promotional Urgency & Countdown Offer State
+  const [promoSettings, setPromoSettings] = useState({
+    enabled: true,
+    unibenDiscountFee: 5950,
+    unibenNormalFee: 8500,
+    generalDiscountFee: 10000,
+    generalNormalFee: 15000,
+    limitedOfferSlots: 7,
+    expiresAt: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
   });
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [materialFile, setMaterialFile] = useState<File | null>(null);
@@ -172,6 +187,9 @@ export default function AdminPage() {
           courseGuideUrl: data.settings.course_guide_url || '',
         });
       }
+      if (res.ok && data.promoSettings) {
+        setPromoSettings(data.promoSettings);
+      }
     } catch (err) {
       console.error('Error fetching settings:', err);
     }
@@ -190,13 +208,16 @@ export default function AdminPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(bankSettings),
+        body: JSON.stringify({
+          ...bankSettings,
+          promoSettings,
+        }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save settings');
 
-      showToast('Settings & Bank Account details updated successfully!');
+      showToast('Settings, Promotional Offer & Countdown updated successfully!');
     } catch (err: any) {
       alert(err.message || 'Error updating settings');
     } finally {
@@ -787,37 +808,181 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-100">
-            <h3 className="text-sm font-extrabold text-slate-900 mb-1">
-              Tuition Fee Structure (in ₦ Naira)
-            </h3>
-            <p className="text-xs text-slate-500 mb-3">
-              Override course fee rates if promotions change.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* ============================================================ */}
+          {/* LIMITED OFFER & COUNTDOWN EXPIRATION SECTION                 */}
+          {/* ============================================================ */}
+          <div className="pt-4 border-t border-slate-100 bg-amber-50/50 -mx-6 sm:-mx-8 px-6 sm:px-8 py-5 rounded-2xl border border-amber-200/80">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  UNIBEN Discounted Fee (₦)
+                <h3 className="text-sm font-extrabold text-amber-950 flex items-center gap-2">
+                  <Flame className="w-4 h-4 text-amber-600" />
+                  <span>Limited Offer &amp; Countdown Expiration Settings</span>
+                </h3>
+                <p className="text-xs text-amber-900/80 mt-0.5">
+                  Control the limited-slot countdown. When the timer expires, the public site automatically switches off the discount and displays the normal price.
+                </p>
+              </div>
+
+              <label className="inline-flex items-center gap-2 cursor-pointer self-start sm:self-auto bg-white px-3 py-1.5 rounded-xl border border-amber-300 shadow-sm">
+                <input
+                  type="checkbox"
+                  checked={promoSettings.enabled}
+                  onChange={(e) => setPromoSettings({ ...promoSettings, enabled: e.target.checked })}
+                  className="rounded text-brand-600 focus:ring-brand-500 w-4 h-4 cursor-pointer"
+                />
+                <span className="text-xs font-bold text-slate-800">
+                  {promoSettings.enabled ? 'Offer Active' : 'Offer Disabled'}
+                </span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
+                  <span>Limited Offer Slots Remaining</span>
+                  <span className="text-[10px] text-amber-700 font-semibold">(Seats left)</span>
                 </label>
                 <input
                   type="number"
-                  value={bankSettings.unibenFee}
-                  onChange={(e) => setBankSettings({ ...bankSettings, unibenFee: Number(e.target.value) })}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  min="1"
+                  max="100"
+                  value={promoSettings.limitedOfferSlots}
+                  onChange={(e) =>
+                    setPromoSettings({ ...promoSettings, limitedOfferSlots: Number(e.target.value) || 1 })
+                  }
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white font-bold text-slate-900 focus:ring-2 focus:ring-brand-600"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  General Registration Fee (₦)
+                  UNIBEN Discount Price (₦)
                 </label>
                 <input
                   type="number"
-                  value={bankSettings.generalFee}
-                  onChange={(e) => setBankSettings({ ...bankSettings, generalFee: Number(e.target.value) })}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  value={promoSettings.unibenDiscountFee}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setPromoSettings({ ...promoSettings, unibenDiscountFee: val });
+                    setBankSettings({ ...bankSettings, unibenFee: val });
+                  }}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white font-bold text-brand-900 focus:ring-2 focus:ring-brand-600"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  UNIBEN Normal Price (₦)
+                </label>
+                <input
+                  type="number"
+                  value={promoSettings.unibenNormalFee}
+                  onChange={(e) =>
+                    setPromoSettings({ ...promoSettings, unibenNormalFee: Number(e.target.value) })
+                  }
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white text-slate-600 focus:ring-2 focus:ring-brand-600"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  General Public Discount Price (₦)
+                </label>
+                <input
+                  type="number"
+                  value={promoSettings.generalDiscountFee}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setPromoSettings({ ...promoSettings, generalDiscountFee: val });
+                    setBankSettings({ ...bankSettings, generalFee: val });
+                  }}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white font-bold text-brand-900 focus:ring-2 focus:ring-brand-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  General Public Normal Price (₦)
+                </label>
+                <input
+                  type="number"
+                  value={promoSettings.generalNormalFee}
+                  onChange={(e) =>
+                    setPromoSettings({ ...promoSettings, generalNormalFee: Number(e.target.value) })
+                  }
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white text-slate-600 focus:ring-2 focus:ring-brand-600"
+                />
+              </div>
+            </div>
+
+            {/* Countdown Expiration Settings */}
+            <div className="mt-4 pt-3 border-t border-amber-200/60">
+              <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center gap-1.5">
+                <Timer className="w-4 h-4 text-amber-700" />
+                <span>Offer Expiration Date &amp; Time (When countdown hits 0, discount ends)</span>
+              </label>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <input
+                  type="datetime-local"
+                  value={
+                    promoSettings.expiresAt
+                      ? new Date(new Date(promoSettings.expiresAt).getTime() - new Date().getTimezoneOffset() * 60000)
+                          .toISOString()
+                          .slice(0, 16)
+                      : ''
+                  }
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setPromoSettings({
+                        ...promoSettings,
+                        expiresAt: new Date(e.target.value).toISOString(),
+                      });
+                    }
+                  }}
+                  className="px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white text-slate-900 font-medium focus:ring-2 focus:ring-brand-600"
+                />
+
+                {/* Quick Presets */}
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="text-[11px] text-slate-500 font-semibold mr-1">Quick Add:</span>
+                  {[
+                    { label: '+24 Hours', hours: 24 },
+                    { label: '+48 Hours', hours: 48 },
+                    { label: '+3 Days', hours: 72 },
+                    { label: '+7 Days', hours: 168 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        const newExpiry = new Date(Date.now() + preset.hours * 3600 * 1000).toISOString();
+                        setPromoSettings({ ...promoSettings, expiresAt: newExpiry, enabled: true });
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[11px] border border-amber-300 transition"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Live Preview Bar */}
+              <div className="mt-3 p-3 bg-slate-900 text-white rounded-xl text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-inner">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-gold-400 shrink-0" />
+                  <span>
+                    <strong>Visitor Preview:</strong> Only{' '}
+                    <span className="text-gold-400 font-bold">{promoSettings.limitedOfferSlots} seats</span>{' '}
+                    left at {formatNaira(promoSettings.unibenDiscountFee)}!
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-300">
+                  Target: {new Date(promoSettings.expiresAt).toLocaleDateString()} at{' '}
+                  {new Date(promoSettings.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
               </div>
             </div>
           </div>

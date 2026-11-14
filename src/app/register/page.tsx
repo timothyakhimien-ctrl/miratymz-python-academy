@@ -22,6 +22,8 @@ import {
   Sparkles,
   Target,
   Lock,
+  MessageCircle,
+  X,
 } from 'lucide-react';
 import { formatNaira } from '@/lib/utils';
 
@@ -65,11 +67,59 @@ function RegisterForm() {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [phoneWarning, setPhoneWarning] = useState('');
 
-  // Handle Step 1 Submit (Personal Details)
+  // Handle Phone Change with Smart Real-Time Validation
+  const handlePhoneChange = (val: string) => {
+    // Check if user entered letters
+    if (/[a-zA-Z]/.test(val)) {
+      setPhoneWarning('Numbers only: please do not enter letters in the phone field.');
+    } else {
+      setPhoneWarning('');
+    }
+    // Keep only valid phone characters: digits, plus, spaces, dashes
+    const sanitized = val.replace(/[^0-9+\s-]/g, '');
+    setPhone(sanitized);
+    if (errorMsg) setErrorMsg('');
+  };
+
+  // Handle Step 1 Submit (Personal Details with Smart Popup Validation)
   const handleStep1Submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
+
+    // 1. Full name validation (prevent blank spaces or single short initials)
+    const trimmedName = fullName.trim();
+    if (!trimmedName || trimmedName.length < 3) {
+      setErrorMsg('Please enter your full name (First Name and Surname).');
+      window.scrollTo({ top: 180, behavior: 'smooth' });
+      return;
+    }
+
+    // 2. Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim() || !emailRegex.test(email.trim())) {
+      setErrorMsg('Please provide a valid email address (e.g. yourname@gmail.com).');
+      window.scrollTo({ top: 220, behavior: 'smooth' });
+      return;
+    }
+
+    // 3. Phone number validation (digits only check & length)
+    const rawPhone = phone.trim();
+    const phoneDigits = rawPhone.replace(/\D/g, '');
+    if (!rawPhone || phoneDigits.length < 10) {
+      setErrorMsg('Please enter a valid phone number with at least 10 digits (e.g. 08123456789).');
+      window.scrollTo({ top: 260, behavior: 'smooth' });
+      return;
+    }
+
+    // 4. UNIBEN Department validation
+    if (category === 'uniben' && (!department || !department.trim())) {
+      setErrorMsg('Please enter your UNIBEN Department / Faculty.');
+      window.scrollTo({ top: 300, behavior: 'smooth' });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -77,14 +127,14 @@ function RegisterForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fullName,
-          email,
-          phone,
-          institution: category === 'uniben' ? institution : 'General Public',
-          department: category === 'uniben' ? department : 'General',
+          fullName: trimmedName,
+          email: email.trim(),
+          phone: rawPhone,
+          institution: category === 'uniben' ? institution.trim() : 'General Public',
+          department: category === 'uniben' ? department.trim() : 'General',
           level: category === 'uniben' ? level : 'General',
           category,
-          learningGoals,
+          learningGoals: learningGoals.trim(),
           learningMode: 'online',
         }),
       });
@@ -119,7 +169,7 @@ function RegisterForm() {
   const handleStep2Submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!clearanceFile) {
-      setErrorMsg('Please select your UNIBEN clearance slip, course registration slip, or student ID card.');
+      setErrorMsg('Please select your UNIBEN clearance slip, course registration slip, or student ID card before proceeding.');
       return;
     }
     setErrorMsg('');
@@ -131,7 +181,7 @@ function RegisterForm() {
   const handleStep3Submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!receiptFile) {
-      setErrorMsg('Please upload a screenshot or PDF receipt of your payment transfer.');
+      setErrorMsg('Please attach a screenshot or PDF receipt of your payment transfer before submitting.');
       return;
     }
 
@@ -264,10 +314,30 @@ function RegisterForm() {
         </div>
       </div>
 
+      {/* Smart Animated Response Correction Popup Alert */}
       {errorMsg && (
-        <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-2.5">
-          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-          <span>{errorMsg}</span>
+        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-red-50 via-rose-50 to-red-50 border-2 border-red-400 text-red-950 text-xs sm:text-sm shadow-md flex items-start justify-between gap-3 animate-in fade-in slide-in-from-top-3 duration-300">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-red-100 text-red-700 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <strong className="block font-black text-red-900 text-xs uppercase tracking-wider mb-0.5">
+                Correction Needed
+              </strong>
+              <p className="text-red-900/90 leading-relaxed font-semibold">
+                {errorMsg}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMsg('')}
+            className="p-1 text-red-400 hover:text-red-800 transition"
+            title="Dismiss error"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -378,9 +448,16 @@ function RegisterForm() {
             </div>
 
             <div className={category === 'general' ? 'sm:col-span-2' : ''}>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                WhatsApp Phone Number *
-              </label>
+              <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+                <label className="text-xs font-bold text-slate-700">
+                  WhatsApp Phone Number *
+                </label>
+                {phoneWarning && (
+                  <span className="text-[10px] sm:text-[11px] font-extrabold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-300 animate-pulse">
+                    ⚠️ {phoneWarning}
+                  </span>
+                )}
+              </div>
               <div className="relative">
                 <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                 <input
@@ -388,12 +465,16 @@ function RegisterForm() {
                   required
                   placeholder="e.g. 0812 345 6789"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:border-transparent transition ${
+                    phoneWarning
+                      ? 'border-amber-400 bg-amber-50/20 focus:ring-amber-500'
+                      : 'border-slate-300 focus:ring-brand-600'
+                  }`}
                 />
               </div>
               <span className="text-[11px] text-slate-500 mt-1 block">
-                This is the number to be added to the Paid Members WhatsApp Group upon approval.
+                Digits only (e.g. 08123456789). This number is verified to add you to the Paid Members WhatsApp Group upon admission.
               </span>
             </div>
 
@@ -642,11 +723,22 @@ function RegisterForm() {
               </div>
             </div>
 
-            <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-700 shrink-0" />
-              <span>
-                Please transfer exactly <strong>{formatNaira(amount)}</strong>. You may use your Tracking ID <strong>({trackingId})</strong> as your transfer remark/narration.
-              </span>
+            <div className="mt-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>
+                  Please transfer exactly <strong>{formatNaira(amount)}</strong>. You may use your Tracking ID <strong>({trackingId})</strong> as your transfer remark/narration.
+                </span>
+              </div>
+              <a
+                href={`https://wa.me/2348168575186?text=Hello%20MiraTymz%2C%20I%20am%20at%20the%20payment%20transfer%20step%20for%20tracking%20ID%20${trackingId}%20and%20need%20assistance.`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-[11px] font-black text-emerald-800 bg-white hover:bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-xl shadow-sm transition whitespace-nowrap shrink-0 self-end sm:self-auto"
+              >
+                <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Questions? Chat on WhatsApp &rarr;</span>
+              </a>
             </div>
           </div>
 
@@ -727,14 +819,15 @@ function RegisterForm() {
             <CheckCircle2 className="w-10 h-10" />
           </div>
 
-          <div>
-            <span className="text-xs uppercase font-extrabold tracking-widest text-brand-700 bg-brand-50 px-3 py-1 rounded-full border border-brand-200">
-              Receipt Successfully Uploaded
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-3">
+          <div className="flex flex-col items-center justify-center text-center px-1">
+            <div className="inline-flex items-center justify-center gap-1.5 text-xs uppercase font-extrabold tracking-wider sm:tracking-widest text-emerald-800 bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-300 shadow-sm text-center max-w-full">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Receipt Successfully Uploaded</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-3.5 leading-tight">
               Payment Under Review!
             </h2>
-            <p className="text-sm text-slate-600 max-w-md mx-auto mt-2 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto mt-2 leading-relaxed">
               Thank you, <strong>{fullName}</strong>. Your payment proof and details have been securely received by the MiraTymz Admissions Desk.
             </p>
           </div>

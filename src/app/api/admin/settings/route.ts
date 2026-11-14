@@ -50,6 +50,30 @@ export async function GET(request: Request) {
       latestGuideDate = activeFile.created_at;
     }
 
+    // Fetch promotional and countdown settings from storage (or use smart defaults)
+    let promoSettings = {
+      enabled: true,
+      unibenDiscountFee: settings?.uniben_fee || 5950,
+      unibenNormalFee: 8500,
+      generalDiscountFee: settings?.general_fee || 10000,
+      generalNormalFee: 15000,
+      limitedOfferSlots: 7,
+      expiresAt: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
+    };
+
+    try {
+      const { data: promoFile, error: promoErr } = await supabase.storage
+        .from('receipts')
+        .download('promo_settings.json');
+      if (!promoErr && promoFile) {
+        const text = await promoFile.text();
+        const parsed = JSON.parse(text);
+        promoSettings = { ...promoSettings, ...parsed };
+      }
+    } catch {
+      // Fall back to default promoSettings
+    }
+
     return NextResponse.json(
       {
         success: true,
@@ -59,6 +83,7 @@ export async function GET(request: Request) {
           course_guide_name: latestGuideName,
           course_guide_date: latestGuideDate,
         },
+        promoSettings,
       },
       {
         headers: {
@@ -86,6 +111,7 @@ export async function POST(request: Request) {
       generalFee,
       whatsappGroupLink,
       supportPhone,
+      promoSettings,
     } = body;
 
     const supabase = getServiceSupabase();
@@ -111,10 +137,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Could not update settings.' }, { status: 500 });
     }
 
+    // Persist promoSettings in Supabase storage if provided
+    let savedPromoSettings = null;
+    if (promoSettings) {
+      try {
+        const promoBuffer = Buffer.from(JSON.stringify(promoSettings, null, 2), 'utf-8');
+        await supabase.storage
+          .from('receipts')
+          .upload('promo_settings.json', promoBuffer, {
+            contentType: 'application/json',
+            upsert: true,
+          });
+        savedPromoSettings = promoSettings;
+      } catch (uploadErr) {
+        console.error('Failed to save promo settings to storage:', uploadErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       settings: data,
-      message: 'Bank details and academy settings updated successfully.',
+      promoSettings: savedPromoSettings,
+      message: 'Bank details, fees, and promotional settings updated successfully.',
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

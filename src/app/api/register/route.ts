@@ -47,8 +47,29 @@ export async function POST(request: Request) {
       .eq('id', 1)
       .single();
 
-    const unibenFee = settings?.uniben_fee || 5950;
-    const generalFee = settings?.general_fee || 10000;
+    let unibenFee = settings?.uniben_fee || 5950;
+    let generalFee = settings?.general_fee || 10000;
+
+    // Check promotional and countdown status
+    try {
+      const { data: promoFile } = await supabase.storage
+        .from('receipts')
+        .download('promo_settings.json');
+      if (promoFile) {
+        const promo = JSON.parse(await promoFile.text());
+        const isExpired = promo.expiresAt && new Date(promo.expiresAt).getTime() < Date.now();
+        if (promo.enabled && !isExpired) {
+          unibenFee = promo.unibenDiscountFee || unibenFee;
+          generalFee = promo.generalDiscountFee || generalFee;
+        } else if (isExpired) {
+          unibenFee = promo.unibenNormalFee || 8500;
+          generalFee = promo.generalNormalFee || 15000;
+        }
+      }
+    } catch {
+      // fallback to default
+    }
+
     const amount = isUniben ? unibenFee : generalFee;
 
     const trackingId = generateTrackingId();

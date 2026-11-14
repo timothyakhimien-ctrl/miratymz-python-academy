@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -24,6 +24,54 @@ import {
 
 export default function HomePage() {
   const [showGuideModal, setShowGuideModal] = useState(false);
+
+  // Dynamic promo state from admin settings
+  const [promo, setPromo] = useState<{
+    enabled: boolean;
+    slots: number;
+    unibenDiscountFee: number;
+    unibenNormalFee: number;
+    generalDiscountFee: number;
+    generalNormalFee: number;
+    expiresAt: string;
+  }>({
+    enabled: true,
+    slots: 7,
+    unibenDiscountFee: 5950,
+    unibenNormalFee: 8500,
+    generalDiscountFee: 10000,
+    generalNormalFee: 15000,
+    expiresAt: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
+  });
+
+  const [isExpired, setIsExpired] = useState(false);
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/admin/settings');
+        const data = await res.json();
+        if (data.promoSettings) {
+          setPromo({
+            enabled: data.promoSettings.enabled !== false,
+            slots: data.promoSettings.limitedOfferSlots || 7,
+            unibenDiscountFee: data.promoSettings.unibenDiscountFee || 5950,
+            unibenNormalFee: data.promoSettings.unibenNormalFee || 8500,
+            generalDiscountFee: data.promoSettings.generalDiscountFee || 10000,
+            generalNormalFee: data.promoSettings.generalNormalFee || 15000,
+            expiresAt: data.promoSettings.expiresAt || new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
+          });
+          const diff = new Date(data.promoSettings.expiresAt).getTime() - Date.now();
+          if (diff <= 0 || data.promoSettings.enabled === false) {
+            setIsExpired(true);
+          }
+        }
+      } catch {
+        // Fall back to defaults
+      }
+    }
+    loadSettings();
+  }, []);
   const curriculum = [
     {
       week: 'Week 1',
@@ -236,26 +284,41 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Pricing Callout Card */}
-              <div className="bg-gradient-to-br from-brand-900 to-brand-950 border-2 border-gold-500/40 rounded-2xl p-5 shadow-xl text-white">
+              {/* Pricing Callout Card - Now Clickable & Connected to Register */}
+              <Link
+                href="/register?category=uniben"
+                className="block bg-gradient-to-br from-brand-900 to-brand-950 hover:from-brand-850 hover:to-brand-900 border-2 border-gold-500/60 hover:border-gold-400 rounded-2xl p-5 shadow-xl text-white transition-all transform hover:-translate-y-0.5 group cursor-pointer"
+              >
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-xs uppercase font-bold text-gold-400 tracking-wider">
-                      UNIBEN Limited Offer
+                    <span className="text-xs uppercase font-bold text-gold-400 tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-gold-400" />
+                      <span>{isExpired ? 'UNIBEN Standard Tuition' : 'UNIBEN Limited Offer'}</span>
                     </span>
-                    <div className="text-2xl font-black text-white mt-1">
-                      ₦5,950{' '}
-                      <span className="text-xs line-through text-slate-400 font-normal">₦8,500</span>
+                    <div className="text-2xl sm:text-3xl font-black text-white mt-1 flex items-baseline gap-2">
+                      <span>₦{(isExpired ? promo.unibenNormalFee : promo.unibenDiscountFee).toLocaleString()}</span>
+                      {!isExpired && (
+                        <span className="text-xs sm:text-sm line-through text-slate-400 font-normal">
+                          ₦{promo.unibenNormalFee.toLocaleString()}
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <div className="bg-gold-500 text-brand-950 font-black px-3 py-1.5 rounded-xl text-sm shadow">
-                    30% OFF
+                  <div className="bg-gold-500 group-hover:bg-gold-400 text-brand-950 font-black px-3 py-1.5 rounded-xl text-xs sm:text-sm shadow flex items-center gap-1 transition">
+                    <span>{isExpired ? 'ENROLL' : '30% OFF'}</span>
+                    <ArrowRight className="w-3.5 h-3.5 transition transform group-hover:translate-x-0.5" />
                   </div>
                 </div>
                 <p className="text-xs text-slate-300 mt-2">
-                  Special university participant subsidy. General public rate: ₦10,000.
+                  {!isExpired
+                    ? `Special subsidy • Only ${promo.slots} seats left at this price! General rate: ₦${promo.generalDiscountFee.toLocaleString()}.`
+                    : 'Standard university participant tuition rate. Hybrid physical + online.'}
                 </p>
-              </div>
+                <div className="mt-3 pt-2.5 border-t border-brand-800/80 flex items-center justify-between text-xs font-bold text-gold-400 group-hover:text-gold-300">
+                  <span>{isExpired ? 'Click to Begin Registration' : 'Click to Claim Offer & Register Now'}</span>
+                  <span className="text-sm font-black">&rarr;</span>
+                </div>
+              </Link>
             </div>
 
           </div>
@@ -403,7 +466,7 @@ export default function HomePage() {
             {/* UNIBEN Special Offer Card */}
             <div className="bg-gradient-to-b from-brand-900 to-brand-950 border-2 border-gold-500 rounded-3xl p-6 sm:p-8 shadow-2xl relative flex flex-col justify-between">
               <div className="absolute -top-3.5 right-6 sm:right-8 bg-gold-500 text-brand-950 font-black text-xs px-3.5 py-1 rounded-full uppercase tracking-wider shadow">
-                30% OFF Limited Offer
+                {!isExpired ? '30% OFF Limited Offer' : 'Standard Rate'}
               </div>
 
               <div>
@@ -412,12 +475,20 @@ export default function HomePage() {
                 </span>
                 <h3 className="text-xl sm:text-2xl font-black text-white mt-1">UNIBEN Participant Rate</h3>
                 <div className="mt-3 sm:mt-4 flex items-baseline gap-2">
-                  <span className="text-3xl sm:text-5xl font-black text-white">₦5,950</span>
-                  <span className="text-xs sm:text-sm line-through text-slate-400">₦8,500</span>
+                  <span className="text-3xl sm:text-5xl font-black text-white">
+                    ₦{(isExpired ? promo.unibenNormalFee : promo.unibenDiscountFee).toLocaleString()}
+                  </span>
+                  {!isExpired && (
+                    <span className="text-xs sm:text-sm line-through text-slate-400">
+                      ₦{promo.unibenNormalFee.toLocaleString()}
+                    </span>
+                  )}
                   <span className="text-xs text-brand-300 font-bold ml-1">/ Full 8 Weeks</span>
                 </div>
                 <p className="text-xs text-slate-300 mt-2">
-                  Subsidized rate for UNIBEN undergraduates across all faculties and departments.
+                  {!isExpired
+                    ? `Subsidized rate for UNIBEN undergraduates across all faculties. Only ${promo.slots} seats left!`
+                    : 'Standard tuition rate for UNIBEN undergraduates across all faculties and departments.'}
                 </p>
 
                 <ul className="space-y-2.5 sm:space-y-3 mt-5 sm:mt-6 text-xs sm:text-sm text-slate-200">
@@ -449,7 +520,7 @@ export default function HomePage() {
                   href="/register?category=uniben"
                   className="w-full bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-sm sm:text-base text-center py-3.5 sm:py-4 rounded-xl shadow-lg transition block"
                 >
-                  Register as UNIBEN Student &bull; ₦5,950
+                  Register as UNIBEN Student &bull; ₦{(isExpired ? promo.unibenNormalFee : promo.unibenDiscountFee).toLocaleString()}
                 </Link>
               </div>
             </div>
@@ -462,7 +533,14 @@ export default function HomePage() {
                 </span>
                 <h3 className="text-xl sm:text-2xl font-black text-white mt-1">General Registration</h3>
                 <div className="mt-3 sm:mt-4 flex items-baseline gap-2">
-                  <span className="text-3xl sm:text-5xl font-black text-white">₦10,000</span>
+                  <span className="text-3xl sm:text-5xl font-black text-white">
+                    ₦{(isExpired ? promo.generalNormalFee : promo.generalDiscountFee).toLocaleString()}
+                  </span>
+                  {!isExpired && (
+                    <span className="text-xs sm:text-sm line-through text-slate-400">
+                      ₦{promo.generalNormalFee.toLocaleString()}
+                    </span>
+                  )}
                   <span className="text-xs text-slate-400 font-bold ml-1">/ Full 8 Weeks</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-2">
@@ -498,7 +576,7 @@ export default function HomePage() {
                   href="/register?category=general"
                   className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm sm:text-base text-center py-3.5 sm:py-4 rounded-xl transition block"
                 >
-                  Register as General Participant &bull; ₦10,000
+                  Register as General Participant &bull; ₦{(isExpired ? promo.generalNormalFee : promo.generalDiscountFee).toLocaleString()}
                 </Link>
               </div>
             </div>
