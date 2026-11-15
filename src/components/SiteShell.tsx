@@ -4,22 +4,29 @@ import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Terminal, ShieldCheck, Mail, Phone, MapPin, MessageCircle, Flame, Clock } from 'lucide-react';
+import type { PublicPromoData } from '@/lib/promo';
 
-export default function SiteShell({ children }: { children: React.ReactNode }) {
+export default function SiteShell({
+  children,
+  initialPromo,
+}: {
+  children: React.ReactNode;
+  initialPromo?: PublicPromoData;
+}) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith('/miraadmintymz');
 
-  // Promotional Urgency & Countdown State
+  // Promotional Urgency & Countdown State - initialized from server data to prevent flash of wrong content
   const [promo, setPromo] = useState<{
     enabled: boolean;
     slots: number;
     unibenFee: number;
     expiresAt: string;
   }>({
-    enabled: true,
-    slots: 7,
-    unibenFee: 5950,
-    expiresAt: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
+    enabled: initialPromo ? initialPromo.isOfferActive : true,
+    slots: initialPromo?.limitedOfferSlots || 7,
+    unibenFee: initialPromo ? initialPromo.unibenFee : 5950,
+    expiresAt: initialPromo?.expiresAt || new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
   });
 
   const [timeLeft, setTimeLeft] = useState<{
@@ -28,9 +35,26 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
     minutes: number;
     seconds: number;
     isExpired: boolean;
-  }>({ days: 2, hours: 23, minutes: 59, seconds: 59, isExpired: false });
+  }>(() => {
+    if (initialPromo && !initialPromo.isOfferActive) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true };
+    }
+    const diff =
+      (initialPromo?.expiresAt ? new Date(initialPromo.expiresAt).getTime() : Date.now() + 72 * 3600 * 1000) -
+      Date.now();
+    if (diff <= 0) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true };
+    }
+    return {
+      days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+      minutes: Math.floor((diff / 1000 / 60) % 60),
+      seconds: Math.floor((diff / 1000) % 60),
+      isExpired: false,
+    };
+  });
 
-  // Fetch live promo settings on mount
+  // Fetch live promo settings on mount to catch any background updates
   useEffect(() => {
     async function loadSettings() {
       try {

@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import SiteShell from '@/components/SiteShell';
+import { getPublicPromoSettings } from '@/lib/promo';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: 'Python Programming: Foundations & Practical Development | MiraTymz Programming Academy',
@@ -12,15 +16,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const initialPromo = await getPublicPromoSettings();
+
   return (
     <html lang="en" className="scroll-smooth">
       <body className="min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white">
-        <SiteShell>{children}</SiteShell>
+        <SiteShell initialPromo={initialPromo}>{children}</SiteShell>
       </body>
     </html>
   );
