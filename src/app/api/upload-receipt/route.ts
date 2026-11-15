@@ -63,14 +63,14 @@ export async function POST(request: Request) {
 
     const publicUrl = urlData.publicUrl;
 
-    // Optional clearance slip upload for UNIBEN students
+    // Optional UNIBEN Admission Letter upload for university verification
     let clearanceUrl: string | null = null;
     if (clearanceFile && clearanceFile.size > 0) {
       try {
         const cBytes = await clearanceFile.arrayBuffer();
         const cBuffer = Buffer.from(cBytes);
         const cExt = clearanceFile.name.split('.').pop() || 'jpg';
-        const cFileName = `clearance_${trackingId}_${Date.now()}.${cExt}`;
+        const cFileName = `admission_letter_${trackingId}_${Date.now()}.${cExt}`;
         const { error: cUploadErr } = await supabase.storage
           .from('receipts')
           .upload(cFileName, cBuffer, {
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
           clearanceUrl = cUrlData.publicUrl;
         }
       } catch (cErr) {
-        console.warn('Clearance upload warning:', cErr);
+        console.warn('Admission letter upload warning:', cErr);
       }
     }
 
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       paid_at: new Date().toISOString(),
     };
     if (clearanceUrl) {
-      updatePayload.declined_reason = `UNIBEN Clearance Slip: ${clearanceUrl}`;
+      updatePayload.declined_reason = `UNIBEN Admission Letter: ${clearanceUrl}`;
     }
 
     const { error: updateErr } = await supabase

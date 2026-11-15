@@ -34,7 +34,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
 
   // Multi-step: 
   // 1 = Details Form
-  // 2 = UNIBEN Clearance Slip (if UNIBEN) OR skipped to 3 (if General)
+  // 2 = UNIBEN Admission Letter (if UNIBEN) OR skipped to 3 (if General)
   // 3 = Bank Details & Receipt Upload
   // 4 = Confirmation & 24hr Warning
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -195,7 +195,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
         setBankDetails(data.bankDetails);
       }
 
-      // If UNIBEN -> go to Step 2 (Clearance Slip upload)
+      // If UNIBEN -> go to Step 2 (Admission Letter upload)
       // If General -> proceed directly to Step 3 (Payment Transfer & Receipt)
       if (category === 'uniben') {
         setStep(2);
@@ -210,11 +210,11 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
     }
   };
 
-  // Handle Step 2 (Clearance Slip validation)
+  // Handle Step 2 (Admission Letter validation)
   const handleStep2Submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!clearanceFile) {
-      setErrorMsg('Please select your UNIBEN clearance slip, course registration slip, or student ID card before proceeding.');
+      setErrorMsg('Please select your UNIBEN Admission Letter, course registration slip, or student ID card before proceeding.');
       return;
     }
     setErrorMsg('');
@@ -309,15 +309,15 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
         </span>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2">
           {step === 1 && 'Step 1: Student Information'}
-          {step === 2 && 'Step 2: UNIBEN Student Verification'}
+          {step === 2 && 'Step 2: UNIBEN Admission Letter Verification'}
           {step === 3 && 'Step 3: Bank Transfer & Payment Proof'}
           {step === 4 && 'Registration Successfully Received!'}
         </h1>
         <p className="text-sm text-slate-500 mt-1 max-w-lg mx-auto">
           {step === 1 && 'Fill your details below to calculate your course fee and generate your enrollment ID.'}
           {step === 2 && (fees.isOfferActive
-            ? 'Upload your UNIBEN student clearance slip or ID card to validate your 30% discount.'
-            : 'Upload your UNIBEN student clearance slip or ID card to validate your student status.'
+            ? 'Upload your UNIBEN Admission Letter (or course registration slip / student ID) to validate your 30% discount.'
+            : 'Upload your UNIBEN Admission Letter (or course registration slip / student ID) to validate your student status.'
           )}
           {step === 3 && 'Transfer the exact fee to the designated account below and submit your payment screenshot.'}
           {step === 4 && 'Your payment is now under review by our admissions department.'}
@@ -339,7 +339,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
                 <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${step >= 2 ? 'bg-brand-800 text-white' : 'bg-slate-200 text-slate-600'}`}>
                   2
                 </span>
-                <span className="hidden sm:inline">Clearance</span>
+                <span className="hidden sm:inline">Admission Letter</span>
               </div>
               <div className={`w-6 sm:w-10 h-0.5 ${step >= 3 ? 'bg-brand-800' : 'bg-slate-200'}`} />
             </>
@@ -661,15 +661,15 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
             <FileText className="w-5 h-5 text-gold-700 shrink-0 mt-0.5" />
             <div>
               <h3 className="font-extrabold text-sm sm:text-base">
-                UNIBEN Student Enrollment Verification
+                UNIBEN Admission Letter Verification
               </h3>
               {fees.isOfferActive ? (
                 <p className="text-xs text-gold-900 mt-1 leading-relaxed">
-                  To activate your <strong>30% university discount ({formatNaira(fees.uniben)})</strong>, please attach a snapshot or PDF of your UNIBEN clearance slip, course registration form, or student ID card.
+                  To activate your <strong>30% university discount ({formatNaira(fees.uniben)})</strong>, please attach a snapshot or PDF of your <strong>UNIBEN Admission Letter</strong> (or course registration slip / student ID card).
                 </p>
               ) : (
                 <p className="text-xs text-gold-900 mt-1 leading-relaxed">
-                  To verify your UNIBEN student enrollment status, please attach a snapshot or PDF of your UNIBEN clearance slip, course registration form, or student ID card.
+                  To verify your UNIBEN student enrollment status, please attach a snapshot or PDF of your <strong>UNIBEN Admission Letter</strong> (or course registration slip / student ID card).
                 </p>
               )}
             </div>
@@ -689,7 +689,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
                 <FileText className="w-6 h-6" />
               </div>
               <span className="text-sm font-bold text-slate-800">
-                {clearanceFile ? clearanceFile.name : 'Click to select UNIBEN clearance slip or student ID'}
+                {clearanceFile ? clearanceFile.name : 'Click to select UNIBEN Admission Letter or student ID'}
               </span>
               <span className="text-xs text-slate-400 mt-1">
                 Supports JPG, PNG, WebP or PDF (Max 10MB)
@@ -699,7 +699,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
             {clearancePreview && (
               <div className="mt-4 inline-block relative border rounded-xl overflow-hidden shadow-sm max-w-[220px]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={clearancePreview} alt="Clearance slip preview" className="max-h-40 object-contain" />
+                <img src={clearancePreview} alt="Admission letter preview" className="max-h-40 object-contain" />
               </div>
             )}
           </div>
@@ -958,7 +958,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
               <span>What Happens Next?</span>
             </div>
             <p>
-              1. Our finance and admissions officers will verify your transfer and student clearance slip.
+              1. Our finance and admissions officers will verify your transfer and student admission letter.
             </p>
             <p>
               2. Once approved, you can visit the <strong>Status Page</strong> to connect with the admin directly on WhatsApp with your student credentials to be added to the VIP Paid Members Group.

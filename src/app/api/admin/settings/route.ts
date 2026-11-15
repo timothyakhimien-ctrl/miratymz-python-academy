@@ -1,21 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServiceSupabase } from '@/lib/supabase';
+import { verifyAdminRequest } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-// Helper to verify admin token header
-function verifyAdmin(request: Request): boolean {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
-  try {
-    const raw = Buffer.from(authHeader.replace('Bearer ', ''), 'base64').toString('utf-8');
-    const parsed = JSON.parse(raw);
-    return parsed && parsed.exp > Date.now();
-  } catch {
-    return false;
-  }
-}
 
 export async function GET(request: Request) {
   try {
@@ -119,7 +107,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    if (!verifyAdmin(request)) {
+    if (!verifyAdminRequest(request)) {
       return NextResponse.json({ error: 'Unauthorized access.' }, { status: 401 });
     }
 

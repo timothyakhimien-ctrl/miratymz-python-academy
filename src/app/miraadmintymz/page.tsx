@@ -349,7 +349,7 @@ export default function AdminPage() {
                 <input
                   type="text"
                   required
-                  placeholder="miraadmin"
+                  placeholder="Enter username"
                   value={usernameInput}
                   onChange={(e) => setUsernameInput(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-600 bg-slate-900/80 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -384,8 +384,9 @@ export default function AdminPage() {
           </form>
 
           <div className="text-center pt-2">
-            <span className="text-[11px] text-slate-400 block">
-              Default access: <code>miraadmin</code> / <code>miratymz2026</code>
+            <span className="text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-emerald-500" />
+              <span>HMAC-256 Protected &bull; Authorized Personnel Only</span>
             </span>
           </div>
         </div>
@@ -687,15 +688,15 @@ export default function AdminPage() {
                             <span className="text-slate-400 text-[11px] italic block">No receipt</span>
                           )}
 
-                          {reg.declined_reason && reg.declined_reason.includes('UNIBEN Clearance Slip:') && (
+                          {reg.declined_reason && (reg.declined_reason.includes('UNIBEN Clearance Slip:') || reg.declined_reason.includes('UNIBEN Admission Letter:')) && (
                             <a
-                              href={reg.declined_reason.replace('UNIBEN Clearance Slip: ', '')}
+                              href={reg.declined_reason.replace('UNIBEN Clearance Slip: ', '').replace('UNIBEN Admission Letter: ', '')}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 text-[11px] font-bold text-gold-700 hover:text-gold-900 bg-gold-50 hover:bg-gold-100 px-2.5 py-1 rounded-lg border border-gold-200 transition block w-max"
                             >
                               <FileText className="w-3.5 h-3.5" />
-                              <span>Clearance Slip</span>
+                              <span>Admission Letter</span>
                             </a>
                           )}
                         </td>
