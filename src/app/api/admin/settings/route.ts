@@ -53,9 +53,9 @@ export async function GET(request: Request) {
     // Fetch promotional and countdown settings from storage (or use smart defaults)
     let promoSettings = {
       enabled: true,
-      unibenDiscountFee: settings?.uniben_fee || 5950,
+      unibenDiscountFee: 5950,
       unibenNormalFee: 8500,
-      generalDiscountFee: settings?.general_fee || 10000,
+      generalDiscountFee: 10000,
       generalNormalFee: 15000,
       limitedOfferSlots: 7,
       expiresAt: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
@@ -68,22 +68,43 @@ export async function GET(request: Request) {
       if (!promoErr && promoFile) {
         const text = await promoFile.text();
         const parsed = JSON.parse(text);
-        promoSettings = { ...promoSettings, ...parsed };
+        promoSettings = {
+          enabled: parsed.enabled !== undefined ? Boolean(parsed.enabled) : true,
+          unibenDiscountFee: Number(parsed.unibenDiscountFee || parsed.unibenFee) || 5950,
+          unibenNormalFee: Number(parsed.unibenNormalFee || parsed.unibenOriginalFee) || 8500,
+          generalDiscountFee: Number(parsed.generalDiscountFee || parsed.generalFee) || 10000,
+          generalNormalFee: Number(parsed.generalNormalFee || parsed.generalOriginalFee) || 15000,
+          limitedOfferSlots: Number(parsed.limitedOfferSlots) || 7,
+          expiresAt: parsed.expiresAt || new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
+        };
       }
     } catch {
       // Fall back to default promoSettings
     }
+
+    const isExpired = !promoSettings.enabled || (promoSettings.expiresAt && new Date(promoSettings.expiresAt).getTime() <= Date.now());
+    const isOfferActive = promoSettings.enabled && !isExpired;
+
+    const effectiveUniben = isOfferActive ? promoSettings.unibenDiscountFee : promoSettings.unibenNormalFee;
+    const effectiveGeneral = isOfferActive ? promoSettings.generalDiscountFee : promoSettings.generalNormalFee;
 
     return NextResponse.json(
       {
         success: true,
         settings: {
           ...settings,
+          uniben_fee: effectiveUniben,
+          general_fee: effectiveGeneral,
           course_guide_url: latestGuideUrl,
           course_guide_name: latestGuideName,
           course_guide_date: latestGuideDate,
         },
         promoSettings,
+        isOfferActive,
+        effectiveFees: {
+          uniben: effectiveUniben,
+          general: effectiveGeneral,
+        },
       },
       {
         headers: {
@@ -116,6 +137,16 @@ export async function POST(request: Request) {
 
     const supabase = getServiceSupabase();
 
+    // Determine active fees based on promo toggle
+    const isPromoEnabled = promoSettings ? Boolean(promoSettings.enabled) : true;
+    const unibenDiscount = Number(promoSettings?.unibenDiscountFee) || 5950;
+    const unibenNormal = Number(promoSettings?.unibenNormalFee) || 8500;
+    const generalDiscount = Number(promoSettings?.generalDiscountFee) || 10000;
+    const generalNormal = Number(promoSettings?.generalNormalFee) || 15000;
+
+    const activeUnibenFee = isPromoEnabled ? unibenDiscount : unibenNormal;
+    const activeGeneralFee = isPromoEnabled ? generalDiscount : generalNormal;
+
     const { data, error } = await supabase
       .from('admin_settings')
       .upsert({
@@ -123,8 +154,8 @@ export async function POST(request: Request) {
         bank_name: bankName,
         account_number: accountNumber,
         account_name: accountName,
-        uniben_fee: Number(unibenFee) || 5950,
-        general_fee: Number(generalFee) || 10000,
+        uniben_fee: activeUnibenFee,
+        general_fee: activeGeneralFee,
         whatsapp_group_link: whatsappGroupLink,
         support_phone: supportPhone,
         updated_at: new Date().toISOString(),
@@ -137,27 +168,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Could not update settings.' }, { status: 500 });
     }
 
-    // Persist promoSettings in Supabase storage if provided
-    let savedPromoSettings = null;
-    if (promoSettings) {
-      try {
-        const promoBuffer = Buffer.from(JSON.stringify(promoSettings, null, 2), 'utf-8');
-        await supabase.storage
-          .from('receipts')
-          .upload('promo_settings.json', promoBuffer, {
-            contentType: 'application/json',
-            upsert: true,
-          });
-        savedPromoSettings = promoSettings;
-      } catch (uploadErr) {
-        console.error('Failed to save promo settings to storage:', uploadErr);
-      }
+    // Persist full promoSettings in Supabase storage
+    const fullPromo = {
+      enabled: isPromoEnabled,
+      unibenDiscountFee: unibenDiscount,
+      unibenNormalFee: unibenNormal,
+      generalDiscountFee: generalDiscount,
+      generalNormalFee: generalNormal,
+      limitedOfferSlots: Number(promoSettings?.limitedOfferSlots) || 7,
+      expiresAt: promoSettings?.expiresAt || new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
+    };
+
+    try {
+      const promoBuffer = Buffer.from(JSON.stringify(fullPromo, null, 2), 'utf-8');
+      await supabase.storage
+        .from('receipts')
+        .upload('promo_settings.json', promoBuffer, {
+          contentType: 'application/json',
+          upsert: true,
+        });
+    } catch (uploadErr) {
+      console.error('Failed to save promo settings to storage:', uploadErr);
     }
 
     return NextResponse.json({
       success: true,
       settings: data,
-      promoSettings: savedPromoSettings,
+      promoSettings: fullPromo,
+      effectiveFees: {
+        uniben: activeUnibenFee,
+        general: activeGeneralFee,
+      },
       message: 'Bank details, fees, and promotional settings updated successfully.',
     });
   } catch (err: any) {

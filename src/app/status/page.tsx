@@ -275,7 +275,7 @@ function StatusContent() {
                   <Calendar className="w-4 h-4 text-brand-700" />
                   <span>Official Class Commencement Date:</span>
                 </div>
-                <strong className="text-brand-900">Monday, 16 November 2026</strong>
+                <strong className="text-brand-900">Monday, 23 November 2026</strong>
               </div>
             </div>
           )}

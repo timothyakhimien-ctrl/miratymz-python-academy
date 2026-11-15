@@ -57,13 +57,13 @@ export async function POST(request: Request) {
         .download('promo_settings.json');
       if (promoFile) {
         const promo = JSON.parse(await promoFile.text());
-        const isExpired = promo.expiresAt && new Date(promo.expiresAt).getTime() < Date.now();
+        const isExpired = !promo.enabled || (promo.expiresAt && new Date(promo.expiresAt).getTime() <= Date.now());
         if (promo.enabled && !isExpired) {
-          unibenFee = promo.unibenDiscountFee || unibenFee;
-          generalFee = promo.generalDiscountFee || generalFee;
-        } else if (isExpired) {
-          unibenFee = promo.unibenNormalFee || 8500;
-          generalFee = promo.generalNormalFee || 15000;
+          unibenFee = Number(promo.unibenDiscountFee) || 5950;
+          generalFee = Number(promo.generalDiscountFee) || 10000;
+        } else {
+          unibenFee = Number(promo.unibenNormalFee) || 8500;
+          generalFee = Number(promo.generalNormalFee) || 15000;
         }
       }
     } catch {

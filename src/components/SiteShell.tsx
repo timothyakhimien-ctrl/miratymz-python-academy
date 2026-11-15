@@ -37,10 +37,11 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
         const res = await fetch('/api/admin/settings');
         const data = await res.json();
         if (data.promoSettings) {
+          const isOfferActive = data.isOfferActive !== false;
           setPromo({
-            enabled: data.promoSettings.enabled !== false,
-            slots: data.promoSettings.limitedOfferSlots || 7,
-            unibenFee: data.promoSettings.unibenDiscountFee || 5950,
+            enabled: isOfferActive,
+            slots: Number(data.promoSettings.limitedOfferSlots) || 7,
+            unibenFee: Number(data.effectiveFees?.uniben || data.promoSettings.unibenDiscountFee) || 5950,
             expiresAt: data.promoSettings.expiresAt || new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
           });
         }
@@ -86,9 +87,9 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
       <div className="bg-gradient-to-r from-brand-950 via-slate-900 to-brand-950 text-brand-300 text-xs py-2 px-3 text-center font-medium border-b border-brand-900/60 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 leading-tight">
         {!timeLeft.isExpired ? (
           <>
-            <span className="bg-amber-500 text-brand-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider inline-flex items-center gap-1 shrink-0">
-              <Flame className="w-3 h-3 text-red-700 animate-pulse" />
-              <span>Only {promo.slots} Slots Left</span>
+            <span className="bg-amber-500 text-brand-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-flex items-center gap-1 shrink-0 animate-pulse">
+              <Flame className="w-3.5 h-3.5 text-red-700 animate-pulse" />
+              <span>🔥 ONLY {promo.slots} SEATS LEFT</span>
             </span>
             <span className="text-slate-200">
               UNIBEN 30% Subsidy Active (₦{promo.unibenFee.toLocaleString()}) &bull; Ends In:
@@ -110,7 +111,7 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
               Enrollment Open
             </span>
             <span>
-              Classes Commencing <strong>Monday, 16 November 2026</strong> &bull; Cohort Admission Open
+              Classes Commencing <strong>Monday, 23 November 2026</strong> &bull; Cohort Admission Open
             </span>
             <Link href="/register" className="text-gold-400 font-bold underline hover:text-white transition whitespace-nowrap">
               Enroll Now &rarr;
@@ -255,8 +256,8 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
               <ul className="space-y-2.5 text-xs text-slate-400">
                 <li className="flex items-center gap-2">
                   <Mail className="w-4 h-4 text-brand-400 shrink-0" />
-                  <a href="mailto:support@miratymz.com" className="hover:text-white transition">
-                    support@miratymz.com
+                  <a href="mailto:miraclemira231@gmail.com" className="hover:text-white transition">
+                    miraclemira231@gmail.com
                   </a>
                 </li>
                 <li>

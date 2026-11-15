@@ -50,6 +50,16 @@ function RegisterForm() {
     preCategory === 'general' ? 'general' : 'uniben'
   );
 
+  // Dynamic fees from admin settings
+  const [fees, setFees] = useState({
+    uniben: 5950,
+    general: 10000,
+    unibenNormal: 8500,
+    generalNormal: 15000,
+    isOfferActive: true,
+    slots: 7,
+  });
+
   // Step 2 & 3 Server Data
   const [trackingId, setTrackingId] = useState('');
   const [amount, setAmount] = useState(5950);
@@ -68,6 +78,30 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [phoneWarning, setPhoneWarning] = useState('');
+  const [showReceiptPopup, setShowReceiptPopup] = useState(false);
+
+  // Fetch live active pricing on mount
+  useEffect(() => {
+    async function fetchPricing() {
+      try {
+        const res = await fetch('/api/admin/settings');
+        const data = await res.json();
+        if (data.effectiveFees) {
+          const isOfferActive = data.isOfferActive !== false;
+          setFees({
+            uniben: Number(data.effectiveFees.uniben) || 5950,
+            general: Number(data.effectiveFees.general) || 10000,
+            unibenNormal: Number(data.promoSettings?.unibenNormalFee) || 8500,
+            generalNormal: Number(data.promoSettings?.generalNormalFee) || 15000,
+            isOfferActive,
+            slots: Number(data.promoSettings?.limitedOfferSlots) || 7,
+          });
+          setAmount(category === 'uniben' ? data.effectiveFees.uniben : data.effectiveFees.general);
+        }
+      } catch {}
+    }
+    fetchPricing();
+  }, [category]);
 
   // Handle Phone Change with Smart Real-Time Validation
   const handlePhoneChange = (val: string) => {
@@ -177,11 +211,11 @@ function RegisterForm() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Handle Step 3 (Receipt upload and final submission)
+  // Handle Step 3 (Receipt upload and final submission with smart popup if missing)
   const handleStep3Submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!receiptFile) {
-      setErrorMsg('Please attach a screenshot or PDF receipt of your payment transfer before submitting.');
+      setShowReceiptPopup(true);
       return;
     }
 
@@ -371,12 +405,23 @@ function RegisterForm() {
                       className="text-brand-700 focus:ring-brand-500"
                     />
                   </div>
-                  <div className="mt-2 text-2xl font-black text-brand-900">
-                    ₦5,950{' '}
-                    <span className="text-xs line-through text-slate-400 font-normal">₦8,500</span>
+                  <div className="mt-2 text-2xl font-black text-brand-900 flex items-baseline gap-2">
+                    <span>₦{(fees.isOfferActive ? fees.uniben : fees.unibenNormal).toLocaleString()}</span>
+                    {fees.isOfferActive && (
+                      <span className="text-xs line-through text-slate-400 font-normal">
+                        ₦{fees.unibenNormal.toLocaleString()}
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs text-brand-700 mt-1 font-semibold">
-                    &bull; 30% Off Limited University Subsidy
+                  <p className="text-xs text-brand-700 mt-1 font-semibold flex items-center gap-1">
+                    {fees.isOfferActive ? (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>30% Subsidy Active &bull; Only {fees.slots} seats left!</span>
+                      </>
+                    ) : (
+                      <span>&bull; Standard Participant Tuition Rate</span>
+                    )}
                   </p>
                 </div>
               </label>
@@ -400,8 +445,13 @@ function RegisterForm() {
                       className="text-brand-700 focus:ring-brand-500"
                     />
                   </div>
-                  <div className="mt-2 text-2xl font-black text-slate-900">
-                    ₦10,000
+                  <div className="mt-2 text-2xl font-black text-slate-900 flex items-baseline gap-2">
+                    <span>₦{(fees.isOfferActive ? fees.general : fees.generalNormal).toLocaleString()}</span>
+                    {fees.isOfferActive && (
+                      <span className="text-xs line-through text-slate-400 font-normal">
+                        ₦{fees.generalNormal.toLocaleString()}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-slate-500 mt-1 font-medium">
                     &bull; Open to Everyone (No University Affiliation Required)
@@ -754,25 +804,39 @@ function RegisterForm() {
               </p>
             </div>
 
-            <div className="border-2 border-dashed border-slate-300 hover:border-brand-600 rounded-2xl p-6 text-center transition bg-slate-50/50">
+            <div
+              className={`border-2 border-dashed rounded-2xl p-6 text-center transition ${
+                receiptFile
+                  ? 'border-emerald-500 bg-emerald-50/30'
+                  : 'border-slate-300 hover:border-brand-600 bg-slate-50/50'
+              }`}
+            >
               <input
                 type="file"
                 id="receiptUpload"
-                required
                 accept="image/*,.pdf"
                 onChange={handleReceiptChange}
                 className="hidden"
               />
               <label htmlFor="receiptUpload" className="cursor-pointer flex flex-col items-center">
-                <div className="w-12 h-12 rounded-full bg-brand-100 text-brand-800 flex items-center justify-center mb-3">
-                  <Upload className="w-6 h-6" />
+                <div
+                  className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${
+                    receiptFile ? 'bg-emerald-100 text-emerald-700' : 'bg-brand-100 text-brand-800'
+                  }`}
+                >
+                  {receiptFile ? <CheckCircle2 className="w-6 h-6" /> : <Upload className="w-6 h-6" />}
                 </div>
-                <span className="text-sm font-bold text-slate-800">
+                <span className="text-sm font-bold text-slate-800 break-all max-w-xs mx-auto">
                   {receiptFile ? receiptFile.name : 'Click to select receipt image or PDF'}
                 </span>
                 <span className="text-xs text-slate-400 mt-1">
                   Supports JPG, PNG, WebP or PDF (Max 10MB)
                 </span>
+                {receiptFile && (
+                  <span className="text-[11px] font-bold text-emerald-700 mt-2 bg-emerald-100 px-2.5 py-0.5 rounded-full inline-block">
+                    ✓ File attached &bull; Ready to submit
+                  </span>
+                )}
               </label>
 
               {receiptPreview && (
@@ -906,6 +970,59 @@ function RegisterForm() {
             >
               Back to Home
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* POPUP CORRECTION WHEN "I HAVE PAID" IS CLICKED WITHOUT RECEIPT*/}
+      {/* ============================================================ */}
+      {showReceiptPopup && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative border-2 border-red-500 animate-in zoom-in-95 duration-200 text-slate-900 text-center space-y-4">
+            <button
+              type="button"
+              onClick={() => setShowReceiptPopup(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition text-sm font-bold"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+
+            <div className="w-16 h-16 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto shadow-inner">
+              <AlertCircle className="w-9 h-9" />
+            </div>
+
+            <div>
+              <span className="text-[11px] uppercase font-black tracking-widest text-red-700 bg-red-50 border border-red-200 px-3 py-1 rounded-full inline-block">
+                Missing Proof of Payment
+              </span>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-2.5">
+                Receipt Screenshot Required!
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mt-2">
+                You clicked <strong>&quot;I Have Paid &bull; Submit Proof&quot;</strong>, but you have not attached your bank transfer receipt or transaction screenshot yet. Our finance desk needs this image to confirm your payment.
+              </p>
+            </div>
+
+            <div className="pt-2 space-y-2.5">
+              <label
+                htmlFor="receiptUpload"
+                onClick={() => setShowReceiptPopup(false)}
+                className="w-full bg-gradient-to-r from-brand-800 to-emerald-900 hover:from-brand-900 hover:to-emerald-950 text-white font-extrabold text-sm py-3.5 px-6 rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer text-center"
+              >
+                <Upload className="w-4 h-4 text-brand-300" />
+                <span>Select &amp; Attach Receipt Now</span>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => setShowReceiptPopup(false)}
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition"
+              >
+                Dismiss &amp; Review Transfer Account Details
+              </button>
+            </div>
           </div>
         </div>
       )}

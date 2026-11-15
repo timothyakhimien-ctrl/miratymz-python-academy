@@ -827,11 +827,18 @@ export default function AdminPage() {
                 <input
                   type="checkbox"
                   checked={promoSettings.enabled}
-                  onChange={(e) => setPromoSettings({ ...promoSettings, enabled: e.target.checked })}
+                  onChange={(e) => {
+                    const isEnabled = e.target.checked;
+                    const isPast = new Date(promoSettings.expiresAt).getTime() <= Date.now();
+                    const newExpiry = (isEnabled && isPast)
+                      ? new Date(Date.now() + 72 * 3600 * 1000).toISOString()
+                      : promoSettings.expiresAt;
+                    setPromoSettings({ ...promoSettings, enabled: isEnabled, expiresAt: newExpiry });
+                  }}
                   className="rounded text-brand-600 focus:ring-brand-500 w-4 h-4 cursor-pointer"
                 />
                 <span className="text-xs font-bold text-slate-800">
-                  {promoSettings.enabled ? 'Offer Active' : 'Offer Disabled'}
+                  {promoSettings.enabled ? 'Offer Active (Discount ON)' : 'Offer Disabled (Normal Price)'}
                 </span>
               </label>
             </div>
@@ -974,9 +981,16 @@ export default function AdminPage() {
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-gold-400 shrink-0" />
                   <span>
-                    <strong>Visitor Preview:</strong> Only{' '}
-                    <span className="text-gold-400 font-bold">{promoSettings.limitedOfferSlots} seats</span>{' '}
-                    left at {formatNaira(promoSettings.unibenDiscountFee)}!
+                    <strong>Visitor Live Preview:</strong>{' '}
+                    {promoSettings.enabled && new Date(promoSettings.expiresAt).getTime() > Date.now() ? (
+                      <span className="text-emerald-400 font-bold">
+                        ACTIVE &bull; Only {promoSettings.limitedOfferSlots} seats left at {formatNaira(promoSettings.unibenDiscountFee)} (UNIBEN) / {formatNaira(promoSettings.generalDiscountFee)} (General)
+                      </span>
+                    ) : (
+                      <span className="text-amber-400 font-bold">
+                        NORMAL PRICE ACTIVE &bull; UNIBEN: {formatNaira(promoSettings.unibenNormalFee)} / General: {formatNaira(promoSettings.generalNormalFee)} (Discount Removed)
+                      </span>
+                    )}
                   </span>
                 </div>
                 <div className="text-[11px] text-slate-300">

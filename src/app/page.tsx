@@ -20,6 +20,7 @@ import {
   Award,
   FileText,
   ShieldCheck,
+  Flame,
 } from 'lucide-react';
 
 export default function HomePage() {
@@ -52,19 +53,17 @@ export default function HomePage() {
         const res = await fetch('/api/admin/settings');
         const data = await res.json();
         if (data.promoSettings) {
+          const isOfferActive = data.isOfferActive !== false;
           setPromo({
             enabled: data.promoSettings.enabled !== false,
-            slots: data.promoSettings.limitedOfferSlots || 7,
-            unibenDiscountFee: data.promoSettings.unibenDiscountFee || 5950,
-            unibenNormalFee: data.promoSettings.unibenNormalFee || 8500,
-            generalDiscountFee: data.promoSettings.generalDiscountFee || 10000,
-            generalNormalFee: data.promoSettings.generalNormalFee || 15000,
+            slots: Number(data.promoSettings.limitedOfferSlots) || 7,
+            unibenDiscountFee: Number(data.promoSettings.unibenDiscountFee) || 5950,
+            unibenNormalFee: Number(data.promoSettings.unibenNormalFee) || 8500,
+            generalDiscountFee: Number(data.promoSettings.generalDiscountFee) || 10000,
+            generalNormalFee: Number(data.promoSettings.generalNormalFee) || 15000,
             expiresAt: data.promoSettings.expiresAt || new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
           });
-          const diff = new Date(data.promoSettings.expiresAt).getTime() - Date.now();
-          if (diff <= 0 || data.promoSettings.enabled === false) {
-            setIsExpired(true);
-          }
+          setIsExpired(!isOfferActive);
         }
       } catch {
         // Fall back to defaults
@@ -146,7 +145,7 @@ export default function HomePage() {
     },
     {
       q: 'When does the training begin?',
-      a: 'Classes commence officially on Monday, 16 November 2026. Register early to secure your limited seat and orientation materials.',
+      a: 'Classes commence officially on Monday, 23 November 2026. Register early to secure your limited seat and orientation materials.',
     },
   ];
 
@@ -163,9 +162,19 @@ export default function HomePage() {
             
             {/* Left Column: Headline & Value Proposition */}
             <div className="lg:col-span-7 space-y-5 sm:space-y-6 text-center lg:text-left">
-              <div className="inline-flex items-center gap-2 bg-brand-800/80 border border-brand-500/30 px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold text-brand-300">
-                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold-400 shrink-0" />
-                <span>8-WEEK INTENSIVE TRAINING PROGRAMME</span>
+              {/* High-Visibility Limited Seat Alert Banner */}
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2">
+                <div className="inline-flex items-center gap-2 bg-brand-800/80 border border-brand-500/30 px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold text-brand-300">
+                  <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold-400 shrink-0" />
+                  <span>8-WEEK INTENSIVE TRAINING PROGRAMME</span>
+                </div>
+
+                {!isExpired && (
+                  <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-red-600 via-amber-600 to-red-600 text-white px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-black shadow-lg border border-gold-400/50 animate-pulse tracking-wide">
+                    <Flame className="w-3.5 h-3.5 text-yellow-300 shrink-0" />
+                    <span>🔥 ONLY {promo.slots} SEATS REMAINING</span>
+                  </div>
+                )}
               </div>
 
               <h1 className="text-2xl xs:text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.15] sm:leading-[1.1]">
@@ -203,9 +212,9 @@ export default function HomePage() {
                 <div className="bg-brand-900/60 border border-brand-700/50 p-2.5 sm:p-3 rounded-xl col-span-2 sm:col-span-1">
                   <div className="flex items-center gap-1.5 sm:gap-2 text-emerald-400 font-bold text-xs sm:text-sm">
                     <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                    <span>Starts Nov 16</span>
+                    <span>Starts Nov 23</span>
                   </div>
-                  <span className="text-[11px] sm:text-xs text-slate-400 block mt-0.5">Monday, 16 Nov 2026</span>
+                  <span className="text-[11px] sm:text-xs text-slate-400 block mt-0.5">Monday, 23 Nov 2026</span>
                 </div>
               </div>
 
@@ -215,7 +224,7 @@ export default function HomePage() {
                   href="/register"
                   className="w-full sm:w-auto bg-gradient-to-r from-gold-500 to-amber-500 hover:from-gold-600 hover:to-amber-600 text-brand-950 font-black text-sm sm:text-base px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl shadow-lg hover:shadow-gold-500/20 transition flex items-center justify-center gap-2 text-center"
                 >
-                  <span>Enroll Now &bull; UNIBEN ₦5,950</span>
+                  <span>Enroll Now &bull; UNIBEN ₦{(isExpired ? promo.unibenNormalFee : promo.unibenDiscountFee).toLocaleString()}</span>
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                 </Link>
 
@@ -615,7 +624,7 @@ export default function HomePage() {
         <div className="bg-gradient-to-r from-brand-950 via-brand-900 to-emerald-950 rounded-2xl sm:rounded-3xl p-6 sm:p-12 text-white text-center relative overflow-hidden shadow-2xl border border-brand-800">
           <div className="max-w-2xl mx-auto space-y-4 sm:space-y-5 relative z-10">
             <span className="bg-gold-500 text-brand-950 font-black text-[10px] sm:text-xs px-3 py-1 rounded-full uppercase tracking-wider inline-block">
-              Classes Begin Monday, 16 November 2026
+              Classes Begin Monday, 23 November 2026
             </span>
             <h2 className="text-2xl sm:text-4xl font-black leading-tight">
               Ready to Master Python and Elevate Your Technical Career?
@@ -628,7 +637,7 @@ export default function HomePage() {
                 href="/register"
                 className="w-full sm:w-auto bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-sm sm:text-base px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl shadow-lg transition text-center"
               >
-                Enroll Now &bull; UNIBEN ₦5,950 Offer
+                Enroll Now &bull; UNIBEN ₦{(isExpired ? promo.unibenNormalFee : promo.unibenDiscountFee).toLocaleString()} Offer
               </Link>
               <Link
                 href="/status"
@@ -693,7 +702,7 @@ export default function HomePage() {
                 onClick={() => setShowGuideModal(false)}
                 className="w-full bg-brand-800 hover:bg-brand-900 text-white font-extrabold text-sm py-3.5 px-6 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-center"
               >
-                <span>Register &amp; Claim UNIBEN Subsidy (₦5,950) &rarr;</span>
+                <span>Register &amp; Claim UNIBEN Seat (₦{(isExpired ? promo.unibenNormalFee : promo.unibenDiscountFee).toLocaleString()}) &rarr;</span>
               </Link>
               <div className="flex items-center justify-center gap-4 text-xs pt-1">
                 <Link
