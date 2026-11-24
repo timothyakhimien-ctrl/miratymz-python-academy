@@ -21,7 +21,8 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { schoolId, accessCode } = body;
+    const schoolId = body.schoolId;
+    const accessCode = body.accessCode || body.code;
 
     const result = await verifySchoolCode(schoolId, accessCode);
 
