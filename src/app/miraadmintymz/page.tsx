@@ -28,8 +28,29 @@ import {
   Flame,
   Sparkles,
   Zap,
+  School as SchoolIcon,
+  RotateCcw,
+  Plus,
+  KeyRound,
+  Check,
+  Copy,
 } from 'lucide-react';
 import { formatNaira } from '@/lib/utils';
+
+interface SchoolData {
+  id: string;
+  name: string;
+  address: string;
+  area: string;
+  accessCode: string;
+  paymentMethod: 'bank_transfer' | 'school_office' | 'pending';
+  bankName?: string;
+  accountName?: string;
+  accountNumber?: string;
+  paymentInstructions?: string;
+  isEnabled: boolean;
+  hasPaymentConfigured: boolean;
+}
 
 export default function AdminPage() {
   // Auth State
@@ -39,23 +60,36 @@ export default function AdminPage() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
 
-  // Active Tab: 'registrations' | 'settings'
-  const [activeTab, setActiveTab] = useState<'registrations' | 'settings'>('registrations');
+  // Active Tab: 'registrations' | 'schools' | 'settings'
+  const [activeTab, setActiveTab] = useState<'registrations' | 'schools' | 'settings'>('registrations');
 
   // Registrations Data State
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [stats, setStats] = useState({
     total: 0,
+    archived: 0,
     pending: 0,
     underReview: 0,
     approved: 0,
     declined: 0,
+    unibenCount: 0,
+    schoolCount: 0,
+    generalCount: 0,
     totalRevenue: 0,
+    expectedRevenue: 0,
+    underReviewPotential: 0,
   });
   const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [dataLoading, setDataLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+
+  // Schools State
+  const [schools, setSchools] = useState<SchoolData[]>([]);
+  const [schoolsLoading, setSchoolsLoading] = useState(false);
+  const [editingSchool, setEditingSchool] = useState<SchoolData | null>(null);
+  const [showSchoolModal, setShowSchoolModal] = useState(false);
 
   // Settings State
   const [bankSettings, setBankSettings] = useState({
@@ -83,8 +117,14 @@ export default function AdminPage() {
   const [materialFile, setMaterialFile] = useState<File | null>(null);
   const [materialUploading, setMaterialUploading] = useState(false);
 
-  // Selected Receipt Modal
-  const [activeReceiptUrl, setActiveReceiptUrl] = useState<string | null>(null);
+  // Dual-Document Modal Viewer State
+  const [docModal, setDocModal] = useState<{
+    receiptUrl?: string | null;
+    admissionLetterUrl?: string | null;
+    studentName?: string;
+    trackingId?: string;
+    activeTab: 'receipt' | 'admission';
+  } | null>(null);
 
   // Check existing token on mount
   useEffect(() => {
@@ -99,8 +139,9 @@ export default function AdminPage() {
     if (token) {
       fetchRegistrations();
       fetchSettings();
+      fetchSchools();
     }
-  }, [token, statusFilter]);
+  }, [token, statusFilter, categoryFilter]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -148,9 +189,9 @@ export default function AdminPage() {
     setDataLoading(true);
 
     try {
-      const url = `/api/admin/registrations?status=${encodeURIComponent(statusFilter)}&search=${encodeURIComponent(
-        searchTerm
-      )}&_t=${Date.now()}`;
+      const url = `/api/admin/registrations?status=${encodeURIComponent(statusFilter)}&category=${encodeURIComponent(
+        categoryFilter
+      )}&search=${encodeURIComponent(searchTerm)}&_t=${Date.now()}`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
@@ -164,6 +205,25 @@ export default function AdminPage() {
       console.error('Error fetching registrations:', err);
     } finally {
       setDataLoading(false);
+    }
+  };
+
+  // Fetch schools
+  const fetchSchools = async () => {
+    if (!token) return;
+    setSchoolsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/schools?_t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.schools) {
+        setSchools(data.schools);
+      }
+    } catch (err) {
+      console.error('Error fetching schools:', err);
+    } finally {
+      setSchoolsLoading(false);
     }
   };
 
@@ -225,6 +285,33 @@ export default function AdminPage() {
     }
   };
 
+  // Save / Update School
+  const handleSaveSchool = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSchool || !token) return;
+
+    try {
+      const res = await fetch('/api/admin/schools', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(editingSchool),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save school');
+
+      showToast(data.message || 'School saved successfully!');
+      setShowSchoolModal(false);
+      setEditingSchool(null);
+      await fetchSchools();
+    } catch (err: any) {
+      alert(err.message || 'Error saving school');
+    }
+  };
+
   // Upload Course Guide PDF
   const handleUploadMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,38 +346,55 @@ export default function AdminPage() {
     }
   };
 
-  // Action on registration (Approve / Added to VIP / Decline / Delete)
-  const handleAction = async (trackingId: string, action: 'approve' | 'added_to_vip' | 'decline' | 'delete') => {
+  // Action on registration (Approve / Added to VIP / Decline / Archive / Restore)
+  const handleAction = async (
+    trackingId: string,
+    action: 'approve' | 'added_to_vip' | 'decline' | 'delete' | 'restore',
+    regObj?: any
+  ) => {
     if (!token) return;
     let reason = '';
+    let verifiedAmount: number | undefined = undefined;
+    let paymentReference = '';
+
+    if (action === 'approve') {
+      const defaultAmt = regObj?.amount || 5950;
+      const amtPrompt = prompt(
+        `Enter verified payment amount received for ${trackingId} in Naira (leave as ${defaultAmt} if exact):`,
+        String(defaultAmt)
+      );
+      if (amtPrompt !== null) {
+        verifiedAmount = Number(amtPrompt) || defaultAmt;
+      }
+      const refPrompt = prompt(
+        `Optional: Enter bank payment reference / transaction session ID for ${trackingId}:`,
+        ''
+      );
+      if (refPrompt) {
+        paymentReference = refPrompt.trim();
+      }
+    }
+
     if (action === 'decline') {
       const promptReason = prompt(
         'Please enter the reason for declining (e.g. "Receipt blurred or transfer unconfirmed"):',
         'Proof of payment could not be validated with bank records.'
       );
-      if (promptReason === null) return; // cancelled
+      if (promptReason === null) return;
       reason = promptReason;
     }
+
     if (action === 'delete') {
-      if (!confirm(`Are you sure you want to permanently delete registration ${trackingId}? This will remove it from the system.`)) {
+      if (!confirm(`Archive registration ${trackingId}? This will safely soft-delete the record so it can be restored anytime.`)) {
         return;
       }
     }
 
-    // Optimistic local state update so the admin sees the action instantaneously
-    setRegistrations((prev) => {
-      if (action === 'delete') {
-        return prev.filter((r) => r.tracking_id !== trackingId);
+    if (action === 'restore') {
+      if (!confirm(`Restore registration ${trackingId} to active status?`)) {
+        return;
       }
-      return prev.map((r) => {
-        if (r.tracking_id === trackingId) {
-          if (action === 'approve') return { ...r, status: 'Approved', approved_at: new Date().toISOString(), declined_reason: null };
-          if (action === 'added_to_vip') return { ...r, status: 'Added to VIP Group' };
-          if (action === 'decline') return { ...r, status: 'Declined', declined_reason: reason };
-        }
-        return r;
-      });
-    });
+    }
 
     try {
       const res = await fetch('/api/admin/action', {
@@ -299,7 +403,13 @@ export default function AdminPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ trackingId, action, reason }),
+        body: JSON.stringify({
+          trackingId,
+          action,
+          reason,
+          verifiedAmount,
+          paymentReference,
+        }),
       });
 
       const data = await res.json();
@@ -311,6 +421,16 @@ export default function AdminPage() {
       alert(err.message || 'Error performing action');
       await fetchRegistrations();
     }
+  };
+
+  // Helper to extract admission letter URL from record
+  const getAdmissionUrl = (reg: any): string | null => {
+    if (reg.admission_letter_url) return reg.admission_letter_url;
+    if (reg.declined_reason && reg.declined_reason.includes('Admission Letter:')) {
+      const match = reg.declined_reason.match(/https?:\/\/[^\s]+/);
+      if (match) return match[0];
+    }
+    return null;
   };
 
   // ================================================================
@@ -328,7 +448,7 @@ export default function AdminPage() {
               MiraTymz Staff Admin
             </h1>
             <p className="text-xs text-slate-400">
-              Encrypted portal for payment verification &amp; bank configuration.
+              Encrypted portal for payment verification, school directory &amp; bank configuration.
             </p>
           </div>
 
@@ -423,7 +543,7 @@ export default function AdminPage() {
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              Manage bank account credentials, review transaction receipts, and admit paid students.
+              Review transaction receipts, manage Isheri Pipeline partner schools, and admit paid students.
             </p>
           </div>
         </div>
@@ -450,34 +570,42 @@ export default function AdminPage() {
       {/* Metric Overview Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
-          <span className="text-xs text-slate-400 font-bold uppercase block">Total Signups</span>
+          <span className="text-xs text-slate-400 font-bold uppercase block">Active Students</span>
           <span className="text-2xl font-black text-slate-900 mt-1 block">{stats.total}</span>
+          <span className="text-[10px] text-slate-400">Excludes soft-deleted</span>
         </div>
 
         <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl shadow-sm">
           <span className="text-xs text-blue-800 font-bold uppercase block">Under Review</span>
           <span className="text-2xl font-black text-blue-900 mt-1 block">{stats.underReview}</span>
+          <span className="text-[10px] text-blue-700 font-semibold">{stats.underReviewPotential > 0 ? formatNaira(stats.underReviewPotential) : 'Awaiting proof'}</span>
         </div>
 
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl shadow-sm">
           <span className="text-xs text-amber-800 font-bold uppercase block">Pending Transfer</span>
           <span className="text-2xl font-black text-amber-900 mt-1 block">{stats.pending}</span>
+          <span className="text-[10px] text-amber-700">Order generated</span>
         </div>
 
         <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl shadow-sm">
           <span className="text-xs text-emerald-800 font-bold uppercase block">Approved</span>
           <span className="text-2xl font-black text-emerald-900 mt-1 block">{stats.approved}</span>
+          <span className="text-[10px] text-emerald-700 font-semibold">Verified paid</span>
         </div>
 
-        <div className="bg-red-50 border border-red-200 p-4 rounded-2xl shadow-sm">
-          <span className="text-xs text-red-800 font-bold uppercase block">Declined</span>
-          <span className="text-2xl font-black text-red-900 mt-1 block">{stats.declined}</span>
+        <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl shadow-sm">
+          <span className="text-xs text-slate-500 font-bold uppercase block">Archived / Trash</span>
+          <span className="text-2xl font-black text-slate-600 mt-1 block">{stats.archived}</span>
+          <span className="text-[10px] text-slate-400">Can be restored</span>
         </div>
 
         <div className="bg-brand-950 text-white p-4 rounded-2xl shadow-sm col-span-2 sm:col-span-1">
-          <span className="text-xs text-gold-400 font-bold uppercase block">Total Revenue</span>
+          <span className="text-xs text-gold-400 font-bold uppercase block">Verified Revenue</span>
           <span className="text-lg sm:text-xl font-black text-white mt-1 block">
             {formatNaira(stats.totalRevenue)}
+          </span>
+          <span className="text-[10px] text-slate-400 block mt-0.5">
+            Target: {formatNaira(stats.expectedRevenue)}
           </span>
         </div>
       </div>
@@ -496,9 +624,21 @@ export default function AdminPage() {
           <span>Student Registrations &amp; Receipts</span>
           {stats.underReview > 0 && (
             <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black">
-              {stats.underReview} New
+              {stats.underReview} Under Review
             </span>
           )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('schools')}
+          className={`pb-3 flex items-center gap-2 transition border-b-2 ${
+            activeTab === 'schools'
+              ? 'border-brand-800 text-brand-900'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <SchoolIcon className="w-4 h-4" />
+          <span>Isheri Pipeline Schools Directory ({schools.length})</span>
         </button>
 
         <button
@@ -524,18 +664,19 @@ export default function AdminPage() {
             {/* Filter Pills */}
             <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
               {[
-                { id: 'all', label: 'All' },
+                { id: 'all', label: `All Active (${stats.total})` },
                 { id: 'Under Review', label: `Under Review (${stats.underReview})` },
                 { id: 'Pending', label: `Pending (${stats.pending})` },
                 { id: 'Approved', label: `Approved (${stats.approved})` },
                 { id: 'Declined', label: `Declined (${stats.declined})` },
+                { id: 'archived', label: `Archived / Trash (${stats.archived})` },
               ].map((pill) => (
                 <button
                   key={pill.id}
                   onClick={() => setStatusFilter(pill.id)}
                   className={`text-xs font-bold px-3 py-1.5 rounded-xl transition ${
                     statusFilter === pill.id
-                      ? 'bg-brand-900 text-white'
+                      ? 'bg-brand-900 text-white shadow-sm'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -544,10 +685,21 @@ export default function AdminPage() {
               ))}
             </div>
 
-            {/* Search Box */}
-            <div className="flex items-center gap-2 w-full md:w-80">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+            {/* Category Dropdown & Search Box */}
+            <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="text-xs font-bold px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-600"
+              >
+                <option value="all">All Categories</option>
+                <option value="uniben">UNIBEN Students</option>
+                <option value="school">School Students (Isheri)</option>
+                <option value="general">General Public</option>
+              </select>
+
+              <div className="relative flex-1 sm:w-64">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
                   placeholder="Search name, phone, or ID..."
@@ -560,7 +712,7 @@ export default function AdminPage() {
               <button
                 onClick={fetchRegistrations}
                 className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
-                title="Refresh"
+                title="Refresh Records"
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
@@ -574,10 +726,10 @@ export default function AdminPage() {
                 <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-700 font-extrabold border-b border-slate-200">
                   <tr>
                     <th className="py-3.5 px-4">Student Details</th>
-                    <th className="py-3.5 px-4">Category &amp; Institution</th>
+                    <th className="py-3.5 px-4">Category &amp; School</th>
                     <th className="py-3.5 px-4">Tuition Fee</th>
                     <th className="py-3.5 px-4">Status</th>
-                    <th className="py-3.5 px-4">Proof of Payment</th>
+                    <th className="py-3.5 px-4">Documents</th>
                     <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -589,155 +741,347 @@ export default function AdminPage() {
                       </td>
                     </tr>
                   ) : (
-                    registrations.map((reg) => (
-                      <tr key={reg.id} className="hover:bg-slate-50/80 transition">
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-900 text-sm">{reg.full_name}</div>
-                          <div className="text-[11px] text-slate-500 font-mono">{reg.tracking_id}</div>
-                          <div className="text-[11px] text-slate-500">{reg.email}</div>
-                          <div className="text-[11px] font-semibold text-brand-700 flex items-center gap-1 mt-0.5">
-                            <span>{reg.phone}</span>
-                            <a
-                              href={`https://wa.me/${reg.phone.replace(/[^0-9]/g, '')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-emerald-600 hover:underline inline-flex items-center text-[10px]"
+                    registrations.map((reg) => {
+                      const admissionUrl = getAdmissionUrl(reg);
+
+                      return (
+                        <tr key={reg.id || reg.tracking_id} className="hover:bg-slate-50/80 transition">
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-slate-900 text-sm">{reg.full_name}</div>
+                            <div className="text-[11px] text-slate-500 font-mono font-bold text-brand-800">
+                              {reg.tracking_id}
+                            </div>
+                            <div className="text-[11px] text-slate-500">{reg.email}</div>
+                            <div className="text-[11px] font-semibold text-brand-700 flex items-center gap-1 mt-0.5">
+                              <span>{reg.phone}</span>
+                              <a
+                                href={`https://wa.me/${reg.phone.replace(/[^0-9]/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-emerald-600 hover:underline inline-flex items-center text-[10px]"
+                              >
+                                (Chat WhatsApp)
+                              </a>
+                            </div>
+                            {reg.learning_goals && (
+                              <div className="mt-1.5 p-2 rounded-lg bg-amber-50/80 border border-amber-200/70 text-[11px] text-amber-950 max-w-xs">
+                                <span className="font-bold block text-[9px] uppercase tracking-wider text-amber-800">
+                                  Learning Goal:
+                                </span>
+                                <p className="line-clamp-2 hover:line-clamp-none transition-all cursor-pointer" title={reg.learning_goals}>
+                                  {reg.learning_goals}
+                                </p>
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`inline-block font-bold text-[10px] px-2 py-0.5 rounded-full uppercase ${
+                                reg.category === 'school'
+                                  ? 'bg-emerald-100 text-emerald-900'
+                                  : reg.category === 'uniben'
+                                  ? 'bg-brand-100 text-brand-900'
+                                  : 'bg-slate-200 text-slate-800'
+                              }`}
                             >
-                              (Chat WhatsApp)
-                            </a>
-                          </div>
-                          {reg.learning_goals && (
-                            <div className="mt-1.5 p-2 rounded-lg bg-amber-50/80 border border-amber-200/70 text-[11px] text-amber-950 max-w-xs">
-                              <span className="font-bold block text-[9px] uppercase tracking-wider text-amber-800">
-                                Learning Goal:
+                              {reg.category === 'school'
+                                ? 'School Student (₦5,000)'
+                                : reg.category === 'uniben'
+                                ? 'UNIBEN 30% Off'
+                                : 'General Public'}
+                            </span>
+                            <div className="font-semibold text-slate-800 text-[11px] mt-1">
+                              {reg.school_name || (reg.institution === 'General Public' ? 'General Enrollment' : reg.institution)}
+                            </div>
+                            {reg.department && reg.department !== 'General' && (
+                              <div className="text-[10px] text-slate-400">
+                                {reg.department} &bull; {reg.level}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <div className="font-extrabold text-slate-900 text-sm">
+                              {formatNaira(reg.amount)}
+                            </div>
+                            {reg.verified_amount !== null && reg.verified_amount !== undefined && (
+                              <div className="text-[10px] text-emerald-700 font-bold">
+                                Verified: {formatNaira(reg.verified_amount)}
+                              </div>
+                            )}
+                            {reg.payment_reference && (
+                              <div className="text-[9px] text-slate-400 font-mono">
+                                Ref: {reg.payment_reference}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            {reg.is_deleted || reg.status === 'Archived' ? (
+                              <span className="bg-slate-200 text-slate-700 font-black text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 w-max">
+                                <Trash2 className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Archived</span>
                               </span>
-                              <p className="line-clamp-2 hover:line-clamp-none transition-all cursor-pointer" title={reg.learning_goals}>
-                                {reg.learning_goals}
-                              </p>
-                            </div>
-                          )}
-                        </td>
+                            ) : reg.status === 'Added to VIP Group' ? (
+                              <span className="bg-emerald-100 text-emerald-950 font-black text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 w-max border border-emerald-300">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                                <span>In VIP Group</span>
+                              </span>
+                            ) : reg.status === 'Approved' ? (
+                              <span className="bg-emerald-100 text-emerald-900 font-bold text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 w-max">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                                <span>Approved</span>
+                              </span>
+                            ) : reg.status === 'Under Review' ? (
+                              <span className="bg-blue-100 text-blue-900 font-bold text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 w-max animate-pulse">
+                                <Clock className="w-3.5 h-3.5 text-blue-700" />
+                                <span>Under Review</span>
+                              </span>
+                            ) : reg.status === 'Pending' ? (
+                              <span className="bg-amber-100 text-amber-900 font-bold text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 w-max">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+                                <span>Pending</span>
+                              </span>
+                            ) : (
+                              <span className="bg-red-100 text-red-900 font-bold text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 w-max">
+                                <XCircle className="w-3.5 h-3.5 text-red-700" />
+                                <span>Declined</span>
+                              </span>
+                            )}
+                          </td>
 
+                          <td className="py-3.5 px-4 space-y-1">
+                            {/* Dual Document Trigger */}
+                            <div className="flex flex-col gap-1 items-start">
+                              {reg.receipt_url && (
+                                <button
+                                  onClick={() =>
+                                    setDocModal({
+                                      receiptUrl: reg.receipt_url,
+                                      admissionLetterUrl: admissionUrl,
+                                      studentName: reg.full_name,
+                                      trackingId: reg.tracking_id,
+                                      activeTab: 'receipt',
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-700 hover:text-brand-900 bg-brand-50 hover:bg-brand-100 px-2 py-0.5 rounded-lg border border-brand-200 transition"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span>Receipt Proof</span>
+                                </button>
+                              )}
+
+                              {admissionUrl && (
+                                <button
+                                  onClick={() =>
+                                    setDocModal({
+                                      receiptUrl: reg.receipt_url,
+                                      admissionLetterUrl: admissionUrl,
+                                      studentName: reg.full_name,
+                                      trackingId: reg.tracking_id,
+                                      activeTab: 'admission',
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-gold-700 hover:text-gold-900 bg-gold-50 hover:bg-gold-100 px-2 py-0.5 rounded-lg border border-gold-200 transition"
+                                >
+                                  <FileText className="w-3 h-3" />
+                                  <span>Admission Letter</span>
+                                </button>
+                              )}
+
+                              {!reg.receipt_url && !admissionUrl && (
+                                <span className="text-slate-400 text-[11px] italic">No documents</span>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
+                            {/* Archived Restore Action */}
+                            {reg.is_deleted || reg.status === 'Archived' ? (
+                              <button
+                                onClick={() => handleAction(reg.tracking_id, 'restore')}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition inline-flex items-center gap-1"
+                                title="Restore this record back to active records"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                <span>Restore Record</span>
+                              </button>
+                            ) : (
+                              <>
+                                {reg.status === 'Approved' && (
+                                  <button
+                                    onClick={() => handleAction(reg.tracking_id, 'added_to_vip')}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-2.5 py-1.5 rounded-lg shadow-sm transition"
+                                    title="Mark as joined the VIP WhatsApp group"
+                                  >
+                                    VIP Joined
+                                  </button>
+                                )}
+
+                                {reg.status !== 'Approved' && reg.status !== 'Added to VIP Group' && (
+                                  <button
+                                    onClick={() => handleAction(reg.tracking_id, 'approve', reg)}
+                                    className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition"
+                                    title="Verify payment and approve admission"
+                                  >
+                                    {reg.status === 'Declined' ? 'Re-Approve' : 'Approve'}
+                                  </button>
+                                )}
+
+                                {reg.status !== 'Declined' && (
+                                  <button
+                                    onClick={() => handleAction(reg.tracking_id, 'decline')}
+                                    className="bg-slate-200 hover:bg-red-100 text-slate-700 hover:text-red-700 font-bold text-[11px] px-2.5 py-1.5 rounded-lg transition"
+                                    title="Mark as declined"
+                                  >
+                                    Decline
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => handleAction(reg.tracking_id, 'delete')}
+                                  className="bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 p-1.5 rounded-lg transition inline-flex items-center"
+                                  title="Archive / Soft Delete (Can be restored)"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* TAB 2: ISHERI PIPELINE SCHOOLS DIRECTORY MANAGEMENT          */}
+      {/* ============================================================ */}
+      {activeTab === 'schools' && (
+        <div className="space-y-4">
+          <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <SchoolIcon className="w-5 h-5 text-emerald-700" />
+                <span>Isheri Pipeline Partner Schools Directory</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Manage partner schools, secret access codes, and dedicated payment details (Go-Tegs and others).
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setEditingSchool({
+                  id: `school-${Date.now()}`,
+                  name: '',
+                  address: '',
+                  area: 'Isheri Pipeline, Lagos',
+                  accessCode: `ISHERI-${new Date().getFullYear()}`,
+                  paymentMethod: 'pending',
+                  isEnabled: true,
+                  hasPaymentConfigured: false,
+                });
+                setShowSchoolModal(true);
+              }}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow transition flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add New School</span>
+            </button>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-600">
+                <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-700 font-extrabold border-b border-slate-200">
+                  <tr>
+                    <th className="py-3.5 px-4">School Name &amp; Address</th>
+                    <th className="py-3.5 px-4">Secret Access Code</th>
+                    <th className="py-3.5 px-4">Payment Arrangement</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {schools.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="text-center py-10 text-slate-400">
+                        {schoolsLoading ? 'Loading schools directory...' : 'No schools found.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    schools.map((school) => (
+                      <tr key={school.id} className="hover:bg-slate-50/80 transition">
                         <td className="py-3.5 px-4">
-                          <span
-                            className={`inline-block font-bold text-[10px] px-2 py-0.5 rounded-full uppercase ${
-                              reg.category === 'uniben'
-                                ? 'bg-brand-100 text-brand-900'
-                                : 'bg-slate-200 text-slate-800'
-                            }`}
-                          >
-                            {reg.category === 'uniben' ? 'UNIBEN 30% Off' : 'General Public'}
-                          </span>
-                          <div className="font-semibold text-slate-800 text-[11px] mt-1">
-                            {reg.institution === 'General Public' ? 'General Enrollment' : reg.institution}
+                          <div className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">
+                            <span>{school.name}</span>
+                            {school.id === 'gotegs-intl' && (
+                              <span className="text-[10px] bg-emerald-700 text-white px-2 py-0.5 rounded-full font-bold">
+                                Featured Partner
+                              </span>
+                            )}
                           </div>
-                          {reg.category === 'uniben' && (
-                            <div className="text-[10px] text-slate-400">
-                              {reg.department} &bull; {reg.level}
+                          <div className="text-[11px] text-slate-500">{school.address}</div>
+                          <div className="text-[10px] text-slate-400 font-semibold">{school.area}</div>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <span className="font-mono font-black text-brand-900 bg-brand-50 border border-brand-200 px-2 py-1 rounded-md text-xs">
+                            {school.accessCode}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          {school.hasPaymentConfigured ? (
+                            <div>
+                              <span className="bg-emerald-100 text-emerald-900 font-bold text-[10px] px-2 py-0.5 rounded-full uppercase">
+                                Dedicated Bank Configured
+                              </span>
+                              <div className="text-[11px] font-mono font-bold text-slate-800 mt-1">
+                                {school.bankName} - {school.accountNumber}
+                              </div>
+                              <div className="text-[10px] text-slate-500">{school.accountName}</div>
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="bg-amber-100 text-amber-900 font-bold text-[10px] px-2 py-0.5 rounded-full uppercase">
+                                Pending Administrative Sign-off
+                              </span>
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                Displays honest pending notice to students
+                              </div>
                             </div>
                           )}
                         </td>
 
-                        <td className="py-3.5 px-4 font-extrabold text-slate-900 text-sm">
-                          {formatNaira(reg.amount)}
-                        </td>
-
                         <td className="py-3.5 px-4">
-                          {reg.status === 'Added to VIP Group' && (
-                            <span className="bg-emerald-100 text-emerald-950 font-black text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 w-max border border-emerald-300">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                              <span>In VIP Group</span>
+                          {school.isEnabled ? (
+                            <span className="bg-emerald-100 text-emerald-900 font-bold text-[11px] px-2.5 py-0.5 rounded-full">
+                              Active
                             </span>
-                          )}
-                          {reg.status === 'Approved' && (
-                            <span className="bg-emerald-100 text-emerald-900 font-bold text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 w-max">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                              <span>Approved</span>
-                            </span>
-                          )}
-                          {reg.status === 'Under Review' && (
-                            <span className="bg-blue-100 text-blue-900 font-bold text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 w-max animate-pulse">
-                              <Clock className="w-3.5 h-3.5 text-blue-700" />
-                              <span>Under Review</span>
-                            </span>
-                          )}
-                          {reg.status === 'Pending' && (
-                            <span className="bg-amber-100 text-amber-900 font-bold text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 w-max">
-                              <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
-                              <span>Pending</span>
-                            </span>
-                          )}
-                          {reg.status === 'Declined' && (
-                            <span className="bg-red-100 text-red-900 font-bold text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 w-max">
-                              <XCircle className="w-3.5 h-3.5 text-red-700" />
-                              <span>Declined</span>
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="py-3.5 px-4 space-y-1">
-                          {reg.receipt_url ? (
-                            <button
-                              onClick={() => setActiveReceiptUrl(reg.receipt_url)}
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-700 hover:text-brand-900 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-lg border border-brand-200 transition"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>Payment Receipt</span>
-                            </button>
                           ) : (
-                            <span className="text-slate-400 text-[11px] italic block">No receipt</span>
-                          )}
-
-                          {reg.declined_reason && (reg.declined_reason.includes('UNIBEN Clearance Slip:') || reg.declined_reason.includes('UNIBEN Admission Letter:')) && (
-                            <a
-                              href={reg.declined_reason.replace('UNIBEN Clearance Slip: ', '').replace('UNIBEN Admission Letter: ', '')}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-gold-700 hover:text-gold-900 bg-gold-50 hover:bg-gold-100 px-2.5 py-1 rounded-lg border border-gold-200 transition block w-max"
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              <span>Admission Letter</span>
-                            </a>
+                            <span className="bg-slate-200 text-slate-700 font-bold text-[11px] px-2.5 py-0.5 rounded-full">
+                              Disabled
+                            </span>
                           )}
                         </td>
 
-                        <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
-                          {reg.status === 'Approved' && (
-                            <button
-                              onClick={() => handleAction(reg.tracking_id, 'added_to_vip')}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-2.5 py-1.5 rounded-lg shadow-sm transition"
-                              title="Mark as joined the VIP WhatsApp group"
-                            >
-                              Mark Added to VIP
-                            </button>
-                          )}
-
-                          {reg.status !== 'Approved' && reg.status !== 'Added to VIP Group' && (
-                            <button
-                              onClick={() => handleAction(reg.tracking_id, 'approve')}
-                              className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition"
-                              title="Confirm payment and grant class admission"
-                            >
-                              {reg.status === 'Declined' ? 'Re-Approve' : 'Approve'}
-                            </button>
-                          )}
-
-                          {reg.status !== 'Declined' && (
-                            <button
-                              onClick={() => handleAction(reg.tracking_id, 'decline')}
-                              className="bg-slate-200 hover:bg-red-100 text-slate-700 hover:text-red-700 font-bold text-[11px] px-2.5 py-1.5 rounded-lg transition"
-                              title="Mark as invalid or declined"
-                            >
-                              Decline
-                            </button>
-                          )}
-
+                        <td className="py-3.5 px-4 text-right">
                           <button
-                            onClick={() => handleAction(reg.tracking_id, 'delete')}
-                            className="bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 p-1.5 rounded-lg transition inline-flex items-center"
-                            title="Permanently delete registration"
+                            onClick={() => {
+                              setEditingSchool({ ...school });
+                              setShowSchoolModal(true);
+                            }}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3 py-1.5 rounded-lg transition"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            Edit Config
                           </button>
                         </td>
                       </tr>
@@ -751,7 +1095,7 @@ export default function AdminPage() {
       )}
 
       {/* ============================================================ */}
-      {/* TAB 2: BANK & ACADEMY SETTINGS FORM                           */}
+      {/* TAB 3: BANK & ACADEMY SETTINGS FORM                           */}
       {/* ============================================================ */}
       {activeTab === 'settings' && (
         <form
@@ -761,10 +1105,10 @@ export default function AdminPage() {
           <div>
             <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-brand-700" />
-              <span>Receiving Bank Account Configuration</span>
+              <span>Receiving Bank Account Configuration (Academy Default)</span>
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              These details are dynamically presented to students on the payment checkout page.
+              These details are dynamically presented to UNIBEN and General Public students on payment checkout.
             </p>
           </div>
 
@@ -809,9 +1153,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* ============================================================ */}
-          {/* LIMITED OFFER & COUNTDOWN EXPIRATION SECTION                 */}
-          {/* ============================================================ */}
+          {/* LIMITED OFFER & COUNTDOWN EXPIRATION SECTION */}
           <div className="pt-4 border-t border-slate-100 bg-amber-50/50 -mx-6 sm:-mx-8 px-6 sm:px-8 py-5 rounded-2xl border border-amber-200/80">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
               <div>
@@ -976,29 +1318,6 @@ export default function AdminPage() {
                   ))}
                 </div>
               </div>
-
-              {/* Live Preview Bar */}
-              <div className="mt-3 p-3 bg-slate-900 text-white rounded-xl text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-inner">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-gold-400 shrink-0" />
-                  <span>
-                    <strong>Visitor Live Preview:</strong>{' '}
-                    {promoSettings.enabled && new Date(promoSettings.expiresAt).getTime() > Date.now() ? (
-                      <span className="text-emerald-400 font-bold">
-                        ACTIVE &bull; Only {promoSettings.limitedOfferSlots} seats left at {formatNaira(promoSettings.unibenDiscountFee)} (UNIBEN) / {formatNaira(promoSettings.generalDiscountFee)} (General)
-                      </span>
-                    ) : (
-                      <span className="text-amber-400 font-bold">
-                        NORMAL PRICE ACTIVE &bull; UNIBEN: {formatNaira(promoSettings.unibenNormalFee)} / General: {formatNaira(promoSettings.generalNormalFee)} (Discount Removed)
-                      </span>
-                    )}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-300">
-                  Target: {new Date(promoSettings.expiresAt).toLocaleDateString()} at{' '}
-                  {new Date(promoSettings.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
-              </div>
             </div>
           </div>
 
@@ -1111,56 +1430,305 @@ export default function AdminPage() {
       )}
 
       {/* ============================================================ */}
-      {/* RECEIPT INSPECTION MODAL                                     */}
+      {/* DUAL DOCUMENT INSPECTION MODAL                                */}
       {/* ============================================================ */}
-      {activeReceiptUrl && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+      {docModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-2xl">
             <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-              <span className="font-extrabold text-sm text-slate-900">
-                Transaction Proof Receipt
-              </span>
-              <div className="flex items-center gap-2">
-                <a
-                  href={activeReceiptUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-bold text-brand-700 hover:underline flex items-center gap-1"
-                >
-                  <span>Open Full Size</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-                <button
-                  onClick={() => setActiveReceiptUrl(null)}
-                  className="text-slate-400 hover:text-slate-700 p-1 text-sm font-bold"
-                >
-                  ✕
-                </button>
+              <div>
+                <span className="font-black text-sm text-slate-900 block">
+                  Document Viewer: {docModal.studentName} ({docModal.trackingId})
+                </span>
+                <span className="text-xs text-slate-400">
+                  Inspect student payment receipt and admission clearance side-by-side
+                </span>
               </div>
+              <button
+                onClick={() => setDocModal(null)}
+                className="text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition text-sm font-bold"
+              >
+                ✕
+              </button>
             </div>
 
-            <div className="p-4 overflow-auto flex items-center justify-center bg-slate-100 flex-1 min-h-[300px]">
-              {activeReceiptUrl.toLowerCase().endsWith('.pdf') ? (
-                <iframe src={activeReceiptUrl} className="w-full h-[500px] border-0 rounded-xl" title="Receipt PDF" />
-              ) : (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={activeReceiptUrl}
-                  alt="Receipt"
-                  className="max-h-[600px] max-w-full object-contain rounded-xl shadow"
-                />
+            {/* Document Tabs */}
+            <div className="flex border-b border-slate-200 bg-slate-50 px-4 text-xs font-bold">
+              <button
+                onClick={() => setDocModal({ ...docModal, activeTab: 'receipt' })}
+                className={`py-3 px-4 border-b-2 flex items-center gap-1.5 ${
+                  docModal.activeTab === 'receipt'
+                    ? 'border-brand-800 text-brand-900 bg-white'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Payment Proof Receipt</span>
+                {docModal.receiptUrl ? (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                ) : (
+                  <span className="text-[10px] text-slate-400">(None)</span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setDocModal({ ...docModal, activeTab: 'admission' })}
+                className={`py-3 px-4 border-b-2 flex items-center gap-1.5 ${
+                  docModal.activeTab === 'admission'
+                    ? 'border-brand-800 text-brand-900 bg-white'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Admission Letter / Student ID</span>
+                {docModal.admissionLetterUrl ? (
+                  <span className="w-2 h-2 rounded-full bg-gold-500" />
+                ) : (
+                  <span className="text-[10px] text-slate-400">(None)</span>
+                )}
+              </button>
+            </div>
+
+            {/* Viewer Pane */}
+            <div className="p-4 overflow-auto flex items-center justify-center bg-slate-100 flex-1 min-h-[400px]">
+              {docModal.activeTab === 'receipt' && (
+                docModal.receiptUrl ? (
+                  docModal.receiptUrl.toLowerCase().endsWith('.pdf') ? (
+                    <iframe src={docModal.receiptUrl} className="w-full h-[520px] border-0 rounded-xl" title="Receipt PDF" />
+                  ) : (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={docModal.receiptUrl}
+                      alt="Receipt Proof"
+                      className="max-h-[560px] max-w-full object-contain rounded-xl shadow"
+                    />
+                  )
+                ) : (
+                  <div className="text-slate-400 text-xs italic">No receipt proof uploaded for this student yet.</div>
+                )
+              )}
+
+              {docModal.activeTab === 'admission' && (
+                docModal.admissionLetterUrl ? (
+                  docModal.admissionLetterUrl.toLowerCase().endsWith('.pdf') ? (
+                    <iframe src={docModal.admissionLetterUrl} className="w-full h-[520px] border-0 rounded-xl" title="Admission Letter PDF" />
+                  ) : (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={docModal.admissionLetterUrl}
+                      alt="Admission Letter"
+                      className="max-h-[560px] max-w-full object-contain rounded-xl shadow"
+                    />
+                  )
+                ) : (
+                  <div className="text-slate-400 text-xs italic">No admission letter / student ID uploaded for this student.</div>
+                )
               )}
             </div>
 
-            <div className="p-4 border-t border-slate-100 text-right">
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between">
+              <div>
+                {docModal.activeTab === 'receipt' && docModal.receiptUrl && (
+                  <a
+                    href={docModal.receiptUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-bold text-brand-700 hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>Open Receipt Full Size</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+                {docModal.activeTab === 'admission' && docModal.admissionLetterUrl && (
+                  <a
+                    href={docModal.admissionLetterUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-bold text-gold-700 hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>Open Admission Letter Full Size</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
               <button
-                onClick={() => setActiveReceiptUrl(null)}
+                onClick={() => setDocModal(null)}
                 className="bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold px-5 py-2.5 rounded-xl transition"
               >
                 Close Viewer
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* EDIT / CREATE SCHOOL MODAL                                    */}
+      {/* ============================================================ */}
+      {showSchoolModal && editingSchool && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <form
+            onSubmit={handleSaveSchool}
+            className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <SchoolIcon className="w-5 h-5 text-emerald-700" />
+                <span>{editingSchool.name ? 'Edit School Configuration' : 'Add New Partner School'}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowSchoolModal(false)}
+                className="text-slate-400 hover:text-slate-700 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">School Name *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Go-Tegs International School"
+                value={editingSchool.name}
+                onChange={(e) => setEditingSchool({ ...editingSchool, name: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Street Address *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 15, Ayesanmi Street, GloryLand"
+                  value={editingSchool.address}
+                  onChange={(e) => setEditingSchool({ ...editingSchool, address: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Area / Corridor</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Isheri Pipeline, Lagos"
+                  value={editingSchool.area}
+                  onChange={(e) => setEditingSchool({ ...editingSchool, area: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Secret Access Code * (Provided to School Coordinator)
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. GOTEGS-2026"
+                value={editingSchool.accessCode}
+                onChange={(e) => setEditingSchool({ ...editingSchool, accessCode: e.target.value.toUpperCase() })}
+                className="w-full px-3 py-2 text-xs font-mono font-bold uppercase tracking-wider rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              />
+              <span className="text-[10px] text-slate-400 mt-0.5 block">
+                Never shared publicly. Students must type this exact code to unlock the ₦5,000 subsidized rate.
+              </span>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100">
+              <label className="flex items-center gap-2 cursor-pointer mb-2">
+                <input
+                  type="checkbox"
+                  checked={editingSchool.hasPaymentConfigured}
+                  onChange={(e) =>
+                    setEditingSchool({
+                      ...editingSchool,
+                      hasPaymentConfigured: e.target.checked,
+                      paymentMethod: e.target.checked ? 'bank_transfer' : 'pending',
+                    })
+                  }
+                  className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                />
+                <span className="text-xs font-bold text-slate-800">
+                  School Has Dedicated Receiving Account (e.g. Go-Tegs)
+                </span>
+              </label>
+
+              {editingSchool.hasPaymentConfigured ? (
+                <div className="space-y-3 bg-emerald-50/60 p-3 rounded-xl border border-emerald-200">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-0.5">Bank Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. OPay / PalmPay"
+                        value={editingSchool.bankName || ''}
+                        onChange={(e) => setEditingSchool({ ...editingSchool, bankName: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-0.5">Account Number</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 8168575186"
+                        value={editingSchool.accountNumber || ''}
+                        onChange={(e) => setEditingSchool({ ...editingSchool, accountNumber: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-300"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">Account Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Go-Tegs Int. School (Python Cohort)"
+                      value={editingSchool.accountName || ''}
+                      onChange={(e) => setEditingSchool({ ...editingSchool, accountName: e.target.value })}
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs">
+                  Pending: School registration will display the honest pending notice explaining that administrative payment arrangements are currently being finalized with school management.
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editingSchool.isEnabled}
+                  onChange={(e) => setEditingSchool({ ...editingSchool, isEnabled: e.target.checked })}
+                  className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                />
+                <span className="text-xs font-bold text-slate-800">School Active in Directory</span>
+              </label>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSchoolModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold shadow"
+                >
+                  Save School
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       )}
     </div>

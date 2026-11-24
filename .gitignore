@@ -6,3 +6,6 @@ node_modules
 *.tsbuildinfo
 alias_payload.json
 domain_payload.json
+
+# Local data backups
+backups/

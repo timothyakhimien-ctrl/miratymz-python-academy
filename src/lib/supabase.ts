@@ -1,18 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Base configuration with reliable fallbacks so operations succeed even if dashboard env vars are pending
-const DEFAULT_SUPABASE_URL = 'https://snzrlptwqswaviweehbh.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNuenJscHR3cXN3YXZpd2VlaGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQzNTI4NDksImV4cCI6MjEwOTkyODg0OX0.VGmKNXV1AlwCErntM4maI3K23dIU2f2dqN6NWWBJ2yA';
-const DEFAULT_SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNuenJscHR3cXN3YXZpd2VlaGJoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5NDM1Mjg0OSwiZXhwIjoyMTA5OTI4ODQ5fQ.yPi2_2lq25BoXIGcs_muL-FyaCYkZ1D8Ng6VXWr4TtU';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || DEFAULT_SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://snzrlptwqswaviweehbh.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // Safe client creator
 function safeCreateClient(key: string) {
-  const effectiveKey = key || DEFAULT_SUPABASE_ANON_KEY;
-  return createClient(supabaseUrl, effectiveKey, {
+  if (!supabaseUrl || !key) {
+    throw new Error('Supabase client initialization failed: Missing Supabase URL or Key.');
+  }
+  return createClient(supabaseUrl, key, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -20,11 +16,19 @@ function safeCreateClient(key: string) {
   });
 }
 
-// Public client
-export const supabase = safeCreateClient(supabaseAnonKey);
+// Public client (for safe read operations if permitted by RLS)
+export const supabase = supabaseAnonKey
+  ? safeCreateClient(supabaseAnonKey)
+  : (null as unknown as ReturnType<typeof createClient>);
 
-// Privileged server client (always uses service role key)
+// Privileged server client (strictly uses server-side SUPABASE_SERVICE_ROLE_KEY)
 export function getServiceSupabase() {
-  const effectiveKey = supabaseServiceKey || DEFAULT_SUPABASE_SERVICE_ROLE_KEY;
-  return safeCreateClient(effectiveKey);
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY is not defined in environment variables. ' +
+      'Please ensure this secret is configured in Vercel or your server environment.'
+    );
+  }
+  return safeCreateClient(serviceKey);
 }

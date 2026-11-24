@@ -406,7 +406,11 @@ function StatusContent() {
             <div>
               <span className="text-slate-400 block">Category</span>
               <strong className="text-slate-800 uppercase font-extrabold">
-                {result.registration.category === 'uniben' ? 'UNIBEN Participant' : 'General Public'}
+                {result.registration.category === 'school'
+                  ? 'School Student (₦5,000)'
+                  : result.registration.category === 'uniben'
+                  ? 'UNIBEN Participant'
+                  : 'General Public'}
               </strong>
             </div>
             <div>

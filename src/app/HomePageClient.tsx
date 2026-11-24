@@ -20,6 +20,9 @@ import {
   FileText,
   ShieldCheck,
   Flame,
+  School as SchoolIcon,
+  GraduationCap,
+  Lock,
 } from 'lucide-react';
 import type { PublicPromoData } from '@/lib/promo';
 
@@ -474,7 +477,7 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 max-w-7xl mx-auto">
             {/* UNIBEN Special Offer Card */}
             <div className="bg-gradient-to-b from-brand-900 to-brand-950 border-2 border-gold-500 rounded-3xl p-6 sm:p-8 shadow-2xl relative flex flex-col justify-between">
               <div className="absolute -top-3.5 right-6 sm:right-8 bg-gold-500 text-brand-950 font-black text-xs px-3.5 py-1 rounded-full uppercase tracking-wider shadow">
@@ -487,7 +490,7 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
                 </span>
                 <h3 className="text-xl sm:text-2xl font-black text-white mt-1">UNIBEN Participant Rate</h3>
                 <div className="mt-3 sm:mt-4 flex items-baseline gap-2">
-                  <span className="text-3xl sm:text-5xl font-black text-white">
+                  <span className="text-3xl sm:text-4xl font-black text-white">
                     ₦{(isExpired ? promo.unibenNormalFee : promo.unibenDiscountFee).toLocaleString()}
                   </span>
                   {!isExpired && (
@@ -530,9 +533,65 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
               <div className="pt-6 sm:pt-8">
                 <Link
                   href="/register?category=uniben"
-                  className="w-full bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-sm sm:text-base text-center py-3.5 sm:py-4 rounded-xl shadow-lg transition block"
+                  className="w-full bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-sm text-center py-3.5 sm:py-4 rounded-xl shadow-lg transition block"
                 >
                   Register as UNIBEN Student &bull; ₦{(isExpired ? promo.unibenNormalFee : promo.unibenDiscountFee).toLocaleString()}
+                </Link>
+              </div>
+            </div>
+
+            {/* School Students (Isheri Pipeline / Go-Tegs) Card */}
+            <div className="bg-gradient-to-b from-emerald-950 via-slate-900 to-slate-950 border-2 border-emerald-500 rounded-3xl p-6 sm:p-8 shadow-2xl relative flex flex-col justify-between">
+              <div className="absolute -top-3.5 right-6 sm:right-8 bg-emerald-500 text-slate-950 font-black text-xs px-3.5 py-1 rounded-full uppercase tracking-wider shadow">
+                Partner Schools Cohort
+              </div>
+
+              <div>
+                <span className="text-xs uppercase font-extrabold text-emerald-400 tracking-wider">
+                  Isheri Pipeline &amp; Partner Schools
+                </span>
+                <h3 className="text-xl sm:text-2xl font-black text-white mt-1">Secondary School Students</h3>
+                <div className="mt-3 sm:mt-4 flex items-baseline gap-2">
+                  <span className="text-2xl sm:text-3xl font-black text-white">
+                    Subsidized Tuition
+                  </span>
+                  <span className="text-xs text-emerald-300 font-bold ml-1">/ 8 Weeks</span>
+                </div>
+                <div className="mt-1.5 p-2 rounded-xl bg-emerald-900/50 border border-emerald-700/60 text-[11px] text-emerald-200">
+                  <span className="font-bold block">Go-Tegs International School &amp; Area Schools</span>
+                  <span>Special student rate strictly unlocked upon entering your school access code during registration.</span>
+                </div>
+
+                <ul className="space-y-2.5 sm:space-y-3 mt-5 sm:mt-6 text-xs sm:text-sm text-slate-200">
+                  <li className="flex items-center gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Dedicated Go-Tegs International School arrangement</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Searchable directory of 13+ Isheri Pipeline schools</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Foundation-level algorithms &amp; interactive scripts</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Code-verified access with dedicated support</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Official Certificate of Completion</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="pt-6 sm:pt-8">
+                <Link
+                  href="/register?category=school"
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm text-center py-3.5 sm:py-4 rounded-xl shadow-lg transition block"
+                >
+                  Register as School Student &bull; Enter Code
                 </Link>
               </div>
             </div>
@@ -545,7 +604,7 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
                 </span>
                 <h3 className="text-xl sm:text-2xl font-black text-white mt-1">General Registration</h3>
                 <div className="mt-3 sm:mt-4 flex items-baseline gap-2">
-                  <span className="text-3xl sm:text-5xl font-black text-white">
+                  <span className="text-3xl sm:text-4xl font-black text-white">
                     ₦{(isExpired ? promo.generalNormalFee : promo.generalDiscountFee).toLocaleString()}
                   </span>
                   {!isExpired && (
@@ -586,7 +645,7 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
               <div className="pt-6 sm:pt-8">
                 <Link
                   href="/register?category=general"
-                  className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm sm:text-base text-center py-3.5 sm:py-4 rounded-xl transition block"
+                  className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm text-center py-3.5 sm:py-4 rounded-xl transition block"
                 >
                   Register as General Participant &bull; ₦{(isExpired ? promo.generalNormalFee : promo.generalDiscountFee).toLocaleString()}
                 </Link>

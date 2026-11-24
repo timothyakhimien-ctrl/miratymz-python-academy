@@ -24,9 +24,22 @@ import {
   Lock,
   MessageCircle,
   X,
+  Search,
+  KeyRound,
+  GraduationCap,
+  School as SchoolIcon,
 } from 'lucide-react';
 import { formatNaira } from '@/lib/utils';
 import type { PublicPromoData } from '@/lib/promo';
+
+interface PublicSchoolItem {
+  id: string;
+  name: string;
+  address: string;
+  area: string;
+  isEnabled: boolean;
+  hasPaymentConfigured: boolean;
+}
 
 function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
   const searchParams = useSearchParams();
@@ -34,7 +47,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
 
   // Multi-step: 
   // 1 = Details Form
-  // 2 = UNIBEN Admission Letter (if UNIBEN) OR skipped to 3 (if General)
+  // 2 = UNIBEN Admission Letter (if UNIBEN) OR skipped to 3 (if General / School)
   // 3 = Bank Details & Receipt Upload
   // 4 = Confirmation & 24hr Warning
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -47,9 +60,21 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
   const [department, setDepartment] = useState('');
   const [level, setLevel] = useState('200 Level');
   const [learningGoals, setLearningGoals] = useState('');
-  const [category, setCategory] = useState<'uniben' | 'general'>(
-    preCategory === 'general' ? 'general' : 'uniben'
-  );
+
+  // 3 Categories: 'uniben' | 'school' | 'general'
+  const initialCat = preCategory === 'school' ? 'school' : preCategory === 'general' ? 'general' : 'uniben';
+  const [category, setCategory] = useState<'uniben' | 'school' | 'general'>(initialCat);
+
+  // School Specific State
+  const [schoolsList, setSchoolsList] = useState<PublicSchoolItem[]>([]);
+  const [schoolSearch, setSchoolSearch] = useState('');
+  const [selectedSchoolId, setSelectedSchoolId] = useState('');
+  const [schoolCodeInput, setSchoolCodeInput] = useState('');
+  const [classLevel, setClassLevel] = useState('Senior Secondary (SS 2)');
+  const [isSchoolCodeVerified, setIsSchoolCodeVerified] = useState(false);
+  const [verifiedSchoolData, setVerifiedSchoolData] = useState<any>(null);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [schoolCodeError, setSchoolCodeError] = useState('');
 
   const isInitialActive = initialPromo ? initialPromo.isOfferActive : true;
   const initialUniben = initialPromo 
@@ -59,7 +84,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
     ? (initialPromo.isOfferActive ? initialPromo.generalDiscountFee : initialPromo.generalNormalFee)
     : 10000;
 
-  // Dynamic fees from admin settings - initialized from server data with zero flicker
+  // Dynamic fees from admin settings
   const [fees, setFees] = useState({
     uniben: initialUniben,
     general: initialGeneral,
@@ -72,12 +97,15 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
   // Step 2 & 3 Server Data
   const [trackingId, setTrackingId] = useState('');
   const [amount, setAmount] = useState(
-    preCategory === 'general' ? initialGeneral : initialUniben
+    category === 'school' ? 5000 : category === 'general' ? initialGeneral : initialUniben
   );
   const [bankDetails, setBankDetails] = useState({
     bankName: 'OPay / PalmPay',
     accountNumber: '8100000000',
     accountName: 'MiraTymz Programming Academy',
+    paymentInstructions: 'Transfer the exact amount and upload your transfer receipt as proof of payment.',
+    hasPaymentConfigured: true,
+    paymentMethod: 'bank_transfer',
   });
 
   // Files
@@ -107,33 +135,105 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
             isOfferActive,
             slots: Number(data.promoSettings?.limitedOfferSlots) || 7,
           });
-          setAmount(category === 'uniben' ? data.effectiveFees.uniben : data.effectiveFees.general);
+          if (category === 'uniben') {
+            setAmount(data.effectiveFees.uniben);
+          } else if (category === 'general') {
+            setAmount(data.effectiveFees.general);
+          }
         }
       } catch {}
     }
     fetchPricing();
   }, [category]);
 
+  // Load school directory when category is school
+  useEffect(() => {
+    async function loadSchools() {
+      try {
+        const res = await fetch('/api/schools');
+        const data = await res.json();
+        if (data.schools && Array.isArray(data.schools)) {
+          setSchoolsList(data.schools);
+          // Auto-select Go-Tegs as default if available
+          if (!selectedSchoolId && data.schools.length > 0) {
+            const gotegs = data.schools.find((s: PublicSchoolItem) => s.id === 'gotegs-intl');
+            if (gotegs) {
+              setSelectedSchoolId(gotegs.id);
+            } else {
+              setSelectedSchoolId(data.schools[0].id);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch schools directory:', err);
+      }
+    }
+    if (category === 'school' && schoolsList.length === 0) {
+      loadSchools();
+    }
+  }, [category, schoolsList.length, selectedSchoolId]);
+
+  // Handle school code verification on server
+  const handleVerifySchoolCode = async () => {
+    if (!selectedSchoolId) {
+      setSchoolCodeError('Please select your school from the directory first.');
+      return;
+    }
+    if (!schoolCodeInput.trim()) {
+      setSchoolCodeError('Please enter your school access code.');
+      return;
+    }
+
+    setSchoolCodeError('');
+    setVerifyingCode(true);
+
+    try {
+      const res = await fetch('/api/schools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolId: selectedSchoolId,
+          code: schoolCodeInput.trim(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.valid) {
+        setIsSchoolCodeVerified(false);
+        setVerifiedSchoolData(null);
+        setSchoolCodeError(data.error || data.message || 'Invalid school access code. Please check with your teacher or coordinator.');
+      } else {
+        setIsSchoolCodeVerified(true);
+        setVerifiedSchoolData(data.school);
+        setAmount(data.school.fee || 5000); // ₦5,000 subsidized school fee revealed ONLY upon verification
+        setSchoolCodeError('');
+      }
+    } catch (err: any) {
+      setSchoolCodeError('Network error verifying code. Please try again.');
+    } finally {
+      setVerifyingCode(false);
+    }
+  };
+
   // Handle Phone Change with Smart Real-Time Validation
   const handlePhoneChange = (val: string) => {
-    // Check if user entered letters
     if (/[a-zA-Z]/.test(val)) {
       setPhoneWarning('Numbers only: please do not enter letters in the phone field.');
     } else {
       setPhoneWarning('');
     }
-    // Keep only valid phone characters: digits, plus, spaces, dashes
     const sanitized = val.replace(/[^0-9+\s-]/g, '');
     setPhone(sanitized);
     if (errorMsg) setErrorMsg('');
   };
 
-  // Handle Step 1 Submit (Personal Details with Smart Popup Validation)
+  // Handle Step 1 Submit
   const handleStep1Submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
-    // 1. Full name validation (prevent blank spaces or single short initials)
+    // 1. Full name validation
     const trimmedName = fullName.trim();
     if (!trimmedName || trimmedName.length < 3) {
       setErrorMsg('Please enter your full name (First Name and Surname).');
@@ -149,7 +249,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
       return;
     }
 
-    // 3. Phone number validation (digits only check & length)
+    // 3. Phone number validation
     const rawPhone = phone.trim();
     const phoneDigits = rawPhone.replace(/\D/g, '');
     if (!rawPhone || phoneDigits.length < 10) {
@@ -165,6 +265,20 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
       return;
     }
 
+    // 5. School validation (must be verified)
+    if (category === 'school') {
+      if (!selectedSchoolId) {
+        setErrorMsg('Please select your school from the directory.');
+        window.scrollTo({ top: 300, behavior: 'smooth' });
+        return;
+      }
+      if (!isSchoolCodeVerified || !verifiedSchoolData) {
+        setErrorMsg('Please verify your school access code before submitting.');
+        window.scrollTo({ top: 350, behavior: 'smooth' });
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -175,12 +289,14 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
           fullName: trimmedName,
           email: email.trim(),
           phone: rawPhone,
-          institution: category === 'uniben' ? institution.trim() : 'General Public',
-          department: category === 'uniben' ? department.trim() : 'General',
-          level: category === 'uniben' ? level : 'General',
+          institution: category === 'school' ? verifiedSchoolData.name : category === 'uniben' ? institution.trim() : 'General Public',
+          department: category === 'school' ? classLevel : category === 'uniben' ? department.trim() : 'General',
+          level: category === 'school' ? 'School Student' : category === 'uniben' ? level : 'General',
           category,
           learningGoals: learningGoals.trim(),
-          learningMode: 'online',
+          schoolId: category === 'school' ? selectedSchoolId : undefined,
+          schoolCode: category === 'school' ? schoolCodeInput.trim() : undefined,
+          classLevel: category === 'school' ? classLevel : undefined,
         }),
       });
 
@@ -196,7 +312,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
       }
 
       // If UNIBEN -> go to Step 2 (Admission Letter upload)
-      // If General -> proceed directly to Step 3 (Payment Transfer & Receipt)
+      // If School or General -> proceed directly to Step 3 (Payment Transfer & Receipt)
       if (category === 'uniben') {
         setStep(2);
       } else {
@@ -300,6 +416,13 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
     setTimeout(() => setCopied(false), 2500);
   };
 
+  // Filtered schools
+  const filteredSchools = schoolsList.filter((s) =>
+    s.name.toLowerCase().includes(schoolSearch.toLowerCase()) ||
+    s.address.toLowerCase().includes(schoolSearch.toLowerCase()) ||
+    s.area.toLowerCase().includes(schoolSearch.toLowerCase())
+  );
+
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       {/* Step Indicator Header */}
@@ -394,12 +517,13 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
       {/* ============================================================ */}
       {step === 1 && (
         <form onSubmit={handleStep1Submit} className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-          {/* Category Selector Card */}
+          {/* Category Selector Card - 3 DISTINCT CATEGORIES */}
           <div className="space-y-3">
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
               Select Your Enrollment Category *
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* 1. UNIBEN Student */}
               <label
                 className={`cursor-pointer rounded-2xl p-4 border-2 transition flex flex-col justify-between ${
                   category === 'uniben'
@@ -409,37 +533,88 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
               >
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-brand-950 text-base">UNIBEN Student</span>
+                    <span className="font-extrabold text-brand-950 text-sm sm:text-base flex items-center gap-1.5">
+                      <GraduationCap className="w-4 h-4 text-brand-700 shrink-0" />
+                      <span>UNIBEN Student</span>
+                    </span>
                     <input
                       type="radio"
                       name="category"
                       value="uniben"
                       checked={category === 'uniben'}
-                      onChange={() => setCategory('uniben')}
+                      onChange={() => {
+                        setCategory('uniben');
+                        setAmount(fees.isOfferActive ? fees.uniben : fees.unibenNormal);
+                        setErrorMsg('');
+                      }}
                       className="text-brand-700 focus:ring-brand-500"
                     />
                   </div>
-                  <div className="mt-2 text-2xl font-black text-brand-900 flex items-baseline gap-2">
+                  <div className="mt-2 text-xl sm:text-2xl font-black text-brand-900 flex items-baseline gap-1.5">
                     <span>₦{(fees.isOfferActive ? fees.uniben : fees.unibenNormal).toLocaleString()}</span>
                     {fees.isOfferActive && (
-                      <span className="text-xs line-through text-slate-400 font-normal">
+                      <span className="text-[11px] line-through text-slate-400 font-normal">
                         ₦{fees.unibenNormal.toLocaleString()}
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-brand-700 mt-1 font-semibold flex items-center gap-1">
-                    {fees.isOfferActive ? (
-                      <>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span>30% Subsidy Active &bull; Only {fees.slots} seats left!</span>
-                      </>
-                    ) : (
-                      <span>&bull; Standard Participant Tuition Rate</span>
-                    )}
+                  <p className="text-[11px] text-brand-700 mt-1 font-semibold">
+                    {fees.isOfferActive ? '30% Subsidy Active' : 'Undergraduate Rate'}
                   </p>
                 </div>
               </label>
 
+              {/* 2. School Students (Isheri Pipeline / Go-Tegs) */}
+              <label
+                className={`cursor-pointer rounded-2xl p-4 border-2 transition flex flex-col justify-between ${
+                  category === 'school'
+                    ? 'border-emerald-600 bg-emerald-50/50 shadow-sm'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-emerald-950 text-sm sm:text-base flex items-center gap-1.5">
+                      <SchoolIcon className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>School Student</span>
+                    </span>
+                    <input
+                      type="radio"
+                      name="category"
+                      value="school"
+                      checked={category === 'school'}
+                      onChange={() => {
+                        setCategory('school');
+                        setErrorMsg('');
+                      }}
+                      className="text-emerald-700 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  {/* STRICT REQUIREMENT: DO NOT SHOW ₦5,000 BEFORE CODE IS VERIFIED */}
+                  {isSchoolCodeVerified && verifiedSchoolData ? (
+                    <div className="mt-2">
+                      <div className="text-xl sm:text-2xl font-black text-emerald-800">
+                        ₦{(5000).toLocaleString()}
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block mt-0.5">
+                        ✓ Subsidized Partner Tuition
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="mt-2">
+                      <div className="text-xs font-black text-emerald-900 uppercase tracking-wide bg-emerald-100/70 px-2 py-1 rounded-lg inline-block">
+                        Access Code Required
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-tight">
+                        Special rate unlocked upon school code entry.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </label>
+
+              {/* 3. General Public */}
               <label
                 className={`cursor-pointer rounded-2xl p-4 border-2 transition flex flex-col justify-between ${
                   category === 'general'
@@ -449,33 +624,203 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
               >
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-slate-900 text-base">General Public</span>
+                    <span className="font-extrabold text-slate-900 text-sm sm:text-base flex items-center gap-1.5">
+                      <User className="w-4 h-4 text-slate-600 shrink-0" />
+                      <span>General Public</span>
+                    </span>
                     <input
                       type="radio"
                       name="category"
                       value="general"
                       checked={category === 'general'}
-                      onChange={() => setCategory('general')}
+                      onChange={() => {
+                        setCategory('general');
+                        setAmount(fees.isOfferActive ? fees.general : fees.generalNormal);
+                        setErrorMsg('');
+                      }}
                       className="text-brand-700 focus:ring-brand-500"
                     />
                   </div>
-                  <div className="mt-2 text-2xl font-black text-slate-900 flex items-baseline gap-2">
+                  <div className="mt-2 text-xl sm:text-2xl font-black text-slate-900 flex items-baseline gap-1.5">
                     <span>₦{(fees.isOfferActive ? fees.general : fees.generalNormal).toLocaleString()}</span>
                     {fees.isOfferActive && (
-                      <span className="text-xs line-through text-slate-400 font-normal">
+                      <span className="text-[11px] line-through text-slate-400 font-normal">
                         ₦{fees.generalNormal.toLocaleString()}
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 mt-1 font-medium">
-                    &bull; Open to Everyone (No University Affiliation Required)
+                  <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                    Open to Everyone
                   </p>
                 </div>
               </label>
             </div>
           </div>
 
-          {/* Form Fields */}
+          {/* ========================================================= */}
+          {/* SCHOOL STUDENTS SPECIAL SECTION: DIRECTORY & ACCESS CODE */}
+          {/* ========================================================= */}
+          {category === 'school' && (
+            <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-emerald-50/80 to-slate-50 border-2 border-emerald-300 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 mt-0.5">
+                  <SchoolIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm sm:text-base">
+                    Isheri Pipeline &amp; Partner Schools Program
+                  </h3>
+                  <p className="text-xs text-slate-600 leading-relaxed mt-0.5">
+                    Select your school and enter the official access code provided by your school administration or ICT coordinator to unlock the subsidized student rate.
+                  </p>
+                </div>
+              </div>
+
+              {/* School Search & Selection */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-800">
+                  1. Select Your School *
+                </label>
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    placeholder="Search school name or address (e.g. Go-Tegs, Phidel, Pipeline)..."
+                    value={schoolSearch}
+                    onChange={(e) => setSchoolSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
+                  />
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-1.5 border border-slate-200 rounded-xl p-2 bg-white">
+                  {filteredSchools.length === 0 ? (
+                    <div className="text-center py-4 text-xs text-slate-400">
+                      No schools found matching &quot;{schoolSearch}&quot;
+                    </div>
+                  ) : (
+                    filteredSchools.map((s) => (
+                      <div
+                        key={s.id}
+                        onClick={() => {
+                          setSelectedSchoolId(s.id);
+                          setIsSchoolCodeVerified(false);
+                          setVerifiedSchoolData(null);
+                          setSchoolCodeError('');
+                        }}
+                        className={`p-2.5 rounded-lg cursor-pointer transition text-left flex items-start justify-between gap-2 ${
+                          selectedSchoolId === s.id
+                            ? 'bg-emerald-100/70 border border-emerald-400 text-emerald-950 font-bold'
+                            : 'hover:bg-slate-50 border border-transparent text-slate-700'
+                        }`}
+                      >
+                        <div>
+                          <div className="text-xs font-extrabold flex items-center gap-1.5">
+                            <span>{s.name}</span>
+                            {s.id === 'gotegs-intl' && (
+                              <span className="text-[10px] bg-emerald-700 text-white px-2 py-0.5 rounded-full font-bold">
+                                Featured Partner
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-500 font-normal">
+                            {s.address} &bull; {s.area}
+                          </div>
+                        </div>
+                        {selectedSchoolId === s.id && (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* School Access Code Input */}
+              <div className="space-y-2 pt-1">
+                <label className="block text-xs font-bold text-slate-800">
+                  2. Enter School Access Code *
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                    <input
+                      type="text"
+                      placeholder="e.g. GOTEGS-2026"
+                      value={schoolCodeInput}
+                      onChange={(e) => {
+                        setSchoolCodeInput(e.target.value.toUpperCase());
+                        setIsSchoolCodeVerified(false);
+                        setVerifiedSchoolData(null);
+                        setSchoolCodeError('');
+                      }}
+                      className="w-full pl-10 pr-4 py-2.5 text-sm uppercase font-mono tracking-wider rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleVerifySchoolCode}
+                    disabled={verifyingCode || !selectedSchoolId || !schoolCodeInput.trim()}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow transition disabled:opacity-50 whitespace-nowrap flex items-center justify-center gap-1.5"
+                  >
+                    {verifyingCode ? (
+                      <span>Verifying...</span>
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>Verify School Code</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {schoolCodeError && (
+                  <p className="text-xs text-red-600 font-semibold flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{schoolCodeError}</span>
+                  </p>
+                )}
+
+                {/* VERIFIED SUCCESS CARD - STRICTLY REVEALS ₦5,000 ONLY HERE */}
+                {isSchoolCodeVerified && verifiedSchoolData && (
+                  <div className="p-3.5 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-950 text-xs flex items-center justify-between gap-3 animate-in fade-in duration-200">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
+                      <div>
+                        <strong>Code Verified!</strong> {verifiedSchoolData.name}
+                        <div className="text-[11px] text-emerald-800 font-semibold">
+                          Subsidized Tuition Rate: <span className="font-black text-sm">₦{(5000).toLocaleString()}</span> (Reduced for student cohort)
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-black uppercase text-emerald-800 bg-emerald-200/80 px-2 py-0.5 rounded-md shrink-0">
+                      Active
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Class / Grade Level */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  3. Student Class / Level
+                </label>
+                <select
+                  value={classLevel}
+                  onChange={(e) => setClassLevel(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
+                >
+                  <option value="Junior Secondary (JSS 3)">Junior Secondary (JSS 3)</option>
+                  <option value="Senior Secondary (SS 1)">Senior Secondary (SS 1)</option>
+                  <option value="Senior Secondary (SS 2)">Senior Secondary (SS 2)</option>
+                  <option value="Senior Secondary (SS 3)">Senior Secondary (SS 3)</option>
+                  <option value="Secondary School Leaver">Secondary School Leaver / Post-SSCE</option>
+                  <option value="Primary School Graduate">Primary School Graduate (Special Track)</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Core Personal Form Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
@@ -542,7 +887,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
               </span>
             </div>
 
-            {/* UNIBEN Specific Fields: Institution, Department, Level */}
+            {/* UNIBEN Specific Fields */}
             {category === 'uniben' && (
               <>
                 <div>
@@ -564,12 +909,13 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Department / Faculty
+                    Department / Faculty *
                   </label>
                   <div className="relative">
                     <BookOpen className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                     <input
                       type="text"
+                      required
                       placeholder="e.g. Computer Science / Engineering"
                       value={department}
                       onChange={(e) => setDepartment(e.target.value)}
@@ -598,7 +944,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
               </>
             )}
 
-            {/* Optional Learning Goals / Targets TextArea for all categories */}
+            {/* Optional Learning Goals / Targets TextArea */}
             <div className="sm:col-span-2 pt-2">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-1.5">
                 <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5 flex-wrap">
@@ -607,19 +953,16 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
                   <span className="text-slate-400 font-normal text-[11px]">(Optional)</span>
                 </label>
                 <span className="text-[11px] text-slate-400 sm:text-right shrink-0">
-                  {learningGoals.length} characters (1,500 recommended)
+                  {learningGoals.length} characters
                 </span>
               </div>
               <textarea
-                rows={5}
-                placeholder="Tell us what you want to achieve after this course (e.g. automated scripting, software engineering, machine learning, career progression, or personal projects)..."
+                rows={4}
+                placeholder="Tell us what you want to achieve after this course (e.g. automated scripting, software engineering, machine learning, career progression, or school ICT projects)..."
                 value={learningGoals}
                 onChange={(e) => setLearningGoals(e.target.value)}
                 className="w-full px-4 py-3 rounded-2xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent resize-y"
               />
-              <span className="text-[11px] text-slate-500 mt-1 block leading-relaxed">
-                Optional – share your specific targets so our mentors can personalize your learning path and project assignments.
-              </span>
             </div>
           </div>
 
@@ -633,14 +976,22 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
           <div className="pt-4">
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (category === 'school' && (!isSchoolCodeVerified || !selectedSchoolId))}
               className="w-full bg-brand-800 hover:bg-brand-900 text-white font-extrabold text-base py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading ? (
                 <span>Generating Payment Order...</span>
               ) : (
                 <>
-                  <span>Proceed to Payment ({category === 'uniben' ? formatNaira(fees.isOfferActive ? fees.uniben : fees.unibenNormal) : formatNaira(fees.isOfferActive ? fees.general : fees.generalNormal)})</span>
+                  <span>
+                    Proceed to Payment (
+                    {category === 'school'
+                      ? formatNaira(5000)
+                      : category === 'uniben'
+                      ? formatNaira(fees.isOfferActive ? fees.uniben : fees.unibenNormal)
+                      : formatNaira(fees.isOfferActive ? fees.general : fees.generalNormal)}
+                    )
+                  </span>
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
@@ -653,7 +1004,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
       )}
 
       {/* ============================================================ */}
-      {/* STEP 2: UNIBEN CLEARANCE SLIP UPLOAD (For UNIBEN Students)   */}
+      {/* STEP 2: UNIBEN ADMISSION LETTER UPLOAD (For UNIBEN Students) */}
       {/* ============================================================ */}
       {step === 2 && category === 'uniben' && (
         <form onSubmit={handleStep2Submit} className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
@@ -752,52 +1103,69 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
           <div className="bg-white border-2 border-brand-700/60 rounded-3xl p-6 sm:p-8 shadow-sm">
             <div className="flex items-center gap-2 text-brand-900 font-extrabold text-base mb-4 pb-3 border-b border-slate-100">
               <CreditCard className="w-5 h-5 text-brand-600" />
-              <span>Designated Bank Account for MiraTymz Academy</span>
+              <span>
+                {category === 'school' && verifiedSchoolData?.name
+                  ? `Payment Arrangement for ${verifiedSchoolData.name}`
+                  : 'Designated Bank Account for MiraTymz Academy'}
+              </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-              <div>
-                <span className="text-xs text-slate-500 font-semibold block">Bank Name</span>
-                <span className="text-base font-extrabold text-slate-900 mt-0.5 block">
-                  {bankDetails.bankName}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-xs text-slate-500 font-semibold block">Account Number</span>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xl font-mono font-black text-brand-900">
-                    {bankDetails.accountNumber}
+            {bankDetails.hasPaymentConfigured ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <div>
+                  <span className="text-xs text-slate-500 font-semibold block">Bank Name</span>
+                  <span className="text-base font-extrabold text-slate-900 mt-0.5 block">
+                    {bankDetails.bankName}
                   </span>
-                  <button
-                    type="button"
-                    onClick={copyAccount}
-                    className="p-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 transition text-slate-700 text-xs flex items-center gap-1 shadow-sm"
-                    title="Copy Account Number"
-                  >
-                    {copied ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                    <span className="font-bold">{copied ? 'Copied' : 'Copy'}</span>
-                  </button>
+                </div>
+
+                <div>
+                  <span className="text-xs text-slate-500 font-semibold block">Account Number</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xl font-mono font-black text-brand-900">
+                      {bankDetails.accountNumber}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={copyAccount}
+                      className="p-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 transition text-slate-700 text-xs flex items-center gap-1 shadow-sm"
+                      title="Copy Account Number"
+                    >
+                      {copied ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                      <span className="font-bold">{copied ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-xs text-slate-500 font-semibold block">Account Name</span>
+                  <span className="text-sm font-extrabold text-slate-900 mt-0.5 block">
+                    {bankDetails.accountName}
+                  </span>
                 </div>
               </div>
-
-              <div>
-                <span className="text-xs text-slate-500 font-semibold block">Account Name</span>
-                <span className="text-sm font-extrabold text-slate-900 mt-0.5 block">
-                  {bankDetails.accountName}
-                </span>
+            ) : (
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs sm:text-sm">
+                <div className="font-extrabold flex items-center gap-2 mb-1 text-amber-900">
+                  <Clock className="w-4 h-4 text-amber-700" />
+                  <span>Pending School Administrative Arrangement</span>
+                </div>
+                <p className="leading-relaxed">
+                  {bankDetails.paymentInstructions ||
+                    'Payment arrangements for this school are currently being finalized with the school administration. Please contact your school coordinator or reach out to MiraTymz support directly below.'}
+                </p>
               </div>
-            </div>
+            )}
 
             <div className="mt-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-amber-700 shrink-0" />
                 <span>
-                  Please transfer exactly <strong>{formatNaira(amount)}</strong>. You may use your Tracking ID <strong>({trackingId})</strong> as your transfer remark/narration.
+                  Please transfer exactly <strong>{formatNaira(amount)}</strong>. Use your Tracking ID <strong>({trackingId})</strong> as your transfer remark/narration.
                 </span>
               </div>
               <a
@@ -912,7 +1280,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
               Payment Under Review!
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto mt-2 leading-relaxed">
-              Thank you, <strong>{fullName}</strong>. Your payment proof and details have been securely received by the MiraTymz Admissions Desk.
+              Thank you, <strong>{fullName}</strong>. Your payment proof and enrollment details have been securely received by the MiraTymz Admissions Desk.
             </p>
           </div>
 
@@ -958,7 +1326,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
               <span>What Happens Next?</span>
             </div>
             <p>
-              1. Our finance and admissions officers will verify your transfer and student admission letter.
+              1. Our finance and admissions officers will verify your transfer and student status.
             </p>
             <p>
               2. Once approved, you can visit the <strong>Status Page</strong> to connect with the admin directly on WhatsApp with your student credentials to be added to the VIP Paid Members Group.
@@ -1021,7 +1389,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
                 Receipt Screenshot Required!
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mt-2">
-                You clicked <strong>&quot;I Have Paid &bull; Submit Proof&quot;</strong>, but you have not attached your bank transfer receipt or transaction screenshot yet. Our finance desk needs this image to confirm your payment.
+                Please upload your payment receipt before submitting your payment details. Our finance desk needs this transaction screenshot to confirm and approve your enrollment.
               </p>
             </div>
 
@@ -1052,6 +1420,8 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
 
 export default function RegisterClient({ initialPromo }: { initialPromo?: PublicPromoData }) {
   return (
-    <RegisterForm initialPromo={initialPromo} />
+    <Suspense fallback={<div className="max-w-3xl mx-auto p-12 text-center text-slate-400">Loading enrollment portal...</div>}>
+      <RegisterForm initialPromo={initialPromo} />
+    </Suspense>
   );
 }

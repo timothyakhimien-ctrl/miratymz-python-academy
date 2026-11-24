@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServiceSupabase } from '@/lib/supabase';
 import { generateTrackingId } from '@/lib/utils';
+import { verifySchoolCode } from '@/lib/schools';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -18,6 +19,9 @@ export async function POST(request: Request) {
       category,
       learningGoals,
       learning_goals,
+      schoolId,
+      schoolCode,
+      classLevel,
     } = body;
 
     // Core validation: Full Name, Email, and Phone are always required
@@ -29,13 +33,33 @@ export async function POST(request: Request) {
     }
 
     const isUniben = category === 'uniben';
+    const isSchool = category === 'school';
 
-    // Institution is required only for UNIBEN students
+    // Institution is required for UNIBEN students
     if (isUniben && (!institution || !institution.trim())) {
       return NextResponse.json(
         { error: 'Please enter your institution (e.g. University of Benin).' },
         { status: 400 }
       );
+    }
+
+    let verifiedSchool: any = null;
+    if (isSchool) {
+      if (!schoolId || !schoolCode || !schoolCode.trim()) {
+        return NextResponse.json(
+          { error: 'Please select your school and enter the valid school access code provided to your school.' },
+          { status: 400 }
+        );
+      }
+
+      const verifyResult = await verifySchoolCode(schoolId, schoolCode);
+      if (!verifyResult.valid || !verifyResult.school) {
+        return NextResponse.json(
+          { error: verifyResult.message || 'Invalid school access code. Please verify the code with your school.' },
+          { status: 400 }
+        );
+      }
+      verifiedSchool = verifyResult.school;
     }
 
     const supabase = getServiceSupabase();
@@ -70,7 +94,12 @@ export async function POST(request: Request) {
       // fallback to default
     }
 
-    const amount = isUniben ? unibenFee : generalFee;
+    let amount = generalFee;
+    if (isSchool) {
+      amount = verifiedSchool.fee || 5000; // Strictly ₦5,000 for verified school students
+    } else if (isUniben) {
+      amount = unibenFee;
+    }
 
     const trackingId = generateTrackingId();
     const effectiveGoals = (learningGoals || learning_goals || '').trim();
@@ -81,14 +110,19 @@ export async function POST(request: Request) {
       full_name: fullName.trim(),
       email: email.trim().toLowerCase(),
       phone: phone.trim(),
-      institution: isUniben ? institution.trim() : 'General Public',
-      department: isUniben ? (department?.trim() || 'General') : 'General',
-      level: isUniben ? (level || '100 Level') : 'General',
-      category: isUniben ? 'uniben' : 'general',
+      institution: isSchool ? verifiedSchool.name : isUniben ? institution.trim() : 'General Public',
+      department: isSchool ? (classLevel?.trim() || 'Secondary School') : isUniben ? (department?.trim() || 'General') : 'General',
+      level: isSchool ? 'School Student' : isUniben ? (level || '100 Level') : 'General',
+      category: isSchool ? 'school' : isUniben ? 'uniben' : 'general',
       amount,
       learning_mode: 'online',
       status: 'Pending',
     };
+
+    if (isSchool) {
+      insertPayload.school_id = verifiedSchool.id;
+      insertPayload.school_name = verifiedSchool.name;
+    }
 
     if (effectiveGoals) {
       insertPayload.learning_goals = effectiveGoals;
@@ -101,11 +135,13 @@ export async function POST(request: Request) {
       .select()
       .single();
 
-    // Graceful schema fallback: if learning_goals column does not yet exist in Supabase DB,
-    // retry insert without that column so the student's registration is never blocked.
-    if (error && (error.code === '42703' || error.message?.includes('learning_goals')) && insertPayload.learning_goals) {
-      console.warn('learning_goals column missing in Supabase schema. Retrying without it...');
+    // Graceful schema fallback: if optional columns (learning_goals, school_id, school_name)
+    // do not yet exist in PostgreSQL schema, strip them and retry so the student registration is never blocked.
+    if (error && (error.code === '42703' || error.message?.includes('column'))) {
+      console.warn('Column missing in Supabase schema during registration insert. Retrying without optional columns...', error.message);
       delete insertPayload.learning_goals;
+      delete insertPayload.school_id;
+      delete insertPayload.school_name;
       const retry = await supabase
         .from('registrations')
         .insert(insertPayload)
@@ -123,16 +159,46 @@ export async function POST(request: Request) {
       );
     }
 
+    // Determine bank details to return
+    let bankDetails = {
+      bankName: settings?.bank_name || 'OPay / PalmPay',
+      accountNumber: settings?.account_number || '8100000000',
+      accountName: settings?.account_name || 'MiraTymz Programming Academy',
+      paymentInstructions: 'Transfer the exact amount and upload your transfer receipt as proof of payment.',
+      hasPaymentConfigured: true,
+      paymentMethod: 'bank_transfer',
+    };
+
+    if (isSchool && verifiedSchool) {
+      if (verifiedSchool.hasPaymentConfigured && verifiedSchool.accountNumber) {
+        bankDetails = {
+          bankName: verifiedSchool.bankName || settings?.bank_name || 'Bank Transfer',
+          accountNumber: verifiedSchool.accountNumber,
+          accountName: verifiedSchool.accountName || verifiedSchool.name,
+          paymentInstructions: verifiedSchool.paymentInstructions || 'Transfer the ₦5,000 discounted student tuition.',
+          hasPaymentConfigured: true,
+          paymentMethod: verifiedSchool.paymentMethod || 'bank_transfer',
+        };
+      } else {
+        bankDetails = {
+          bankName: 'Pending School Arrangement',
+          accountNumber: 'N/A',
+          accountName: verifiedSchool.name,
+          paymentInstructions: verifiedSchool.paymentInstructions || 'Payment arrangements for this school are currently being finalized with the school administration. Please contact your school coordinator.',
+          hasPaymentConfigured: false,
+          paymentMethod: 'pending',
+        };
+      }
+    }
+
     return NextResponse.json({
       success: true,
       trackingId,
       amount,
       status: 'Pending',
-      bankDetails: {
-        bankName: settings?.bank_name || 'OPay / PalmPay',
-        accountNumber: settings?.account_number || '8100000000',
-        accountName: settings?.account_name || 'MiraTymz Programming Academy',
-      },
+      category: insertPayload.category,
+      schoolName: isSchool ? verifiedSchool.name : null,
+      bankDetails,
     });
   } catch (err: any) {
     console.error('API Error:', err);

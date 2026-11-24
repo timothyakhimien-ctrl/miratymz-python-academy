@@ -11,7 +11,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized access.' }, { status: 401 });
     }
 
-    const { trackingId, action, reason } = await request.json();
+    const {
+      trackingId,
+      action,
+      reason,
+      verifiedAmount,
+      paymentReference,
+      paymentNotes,
+    } = await request.json();
 
     if (!trackingId || !action) {
       return NextResponse.json({ error: 'Tracking ID and action are required.' }, { status: 400 });
@@ -41,29 +48,57 @@ export async function POST(request: Request) {
     }
 
     if (action === 'approve') {
-      // Check if registration currently has a clearance slip stored in declined_reason
+      // Check current registration to preserve admission letter and notes
       const { data: currentReg } = await supabase
         .from('registrations')
-        .select('declined_reason')
+        .select('*')
         .eq('tracking_id', trackingId)
         .single();
 
       const preservedClearance =
         currentReg?.declined_reason?.includes('UNIBEN Clearance Slip:') ||
-        currentReg?.declined_reason?.includes('UNIBEN Admission Letter:')
+        currentReg?.declined_reason?.includes('UNIBEN Admission Letter:') ||
+        currentReg?.declined_reason?.includes('Admission Letter:')
           ? currentReg.declined_reason
           : null;
 
-      const { data, error } = await supabase
+      const updatePayload: Record<string, any> = {
+        status: 'Approved',
+        approved_at: new Date().toISOString(),
+        declined_reason: preservedClearance,
+      };
+
+      if (verifiedAmount !== undefined && verifiedAmount !== null && !isNaN(Number(verifiedAmount))) {
+        updatePayload.verified_amount = Number(verifiedAmount);
+      }
+      if (paymentReference) {
+        updatePayload.payment_reference = paymentReference.trim();
+      }
+      if (paymentNotes) {
+        updatePayload.payment_notes = paymentNotes.trim();
+      }
+
+      let { data, error } = await supabase
         .from('registrations')
-        .update({
-          status: 'Approved',
-          approved_at: new Date().toISOString(),
-          declined_reason: preservedClearance,
-        })
+        .update(updatePayload)
         .eq('tracking_id', trackingId)
         .select()
         .single();
+
+      // Graceful fallback if verified_amount/payment_reference columns aren't in schema yet
+      if (error && (error.code === '42703' || error.message?.includes('column'))) {
+        delete updatePayload.verified_amount;
+        delete updatePayload.payment_reference;
+        delete updatePayload.payment_notes;
+        const retry = await supabase
+          .from('registrations')
+          .update(updatePayload)
+          .eq('tracking_id', trackingId)
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (error) {
         return NextResponse.json({ error: 'Failed to approve registration: ' + error.message }, { status: 500 });
@@ -76,12 +111,72 @@ export async function POST(request: Request) {
       });
     }
 
+    if (action === 'verify_payment') {
+      const updatePayload: Record<string, any> = {
+        status: 'Approved',
+        approved_at: new Date().toISOString(),
+      };
+
+      if (verifiedAmount !== undefined && verifiedAmount !== null && !isNaN(Number(verifiedAmount))) {
+        updatePayload.verified_amount = Number(verifiedAmount);
+      }
+      if (paymentReference) {
+        updatePayload.payment_reference = paymentReference.trim();
+      }
+      if (paymentNotes) {
+        updatePayload.payment_notes = paymentNotes.trim();
+      }
+
+      let { data, error } = await supabase
+        .from('registrations')
+        .update(updatePayload)
+        .eq('tracking_id', trackingId)
+        .select()
+        .single();
+
+      if (error && (error.code === '42703' || error.message?.includes('column'))) {
+        delete updatePayload.verified_amount;
+        delete updatePayload.payment_reference;
+        delete updatePayload.payment_notes;
+        const retry = await supabase
+          .from('registrations')
+          .update(updatePayload)
+          .eq('tracking_id', trackingId)
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
+
+      if (error) {
+        return NextResponse.json({ error: 'Failed to record payment verification: ' + error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Payment for ${trackingId} recorded and verified (₦${verifiedAmount || 'confirmed'}).`,
+        registration: data,
+      });
+    }
+
     if (action === 'decline') {
+      // Preserve admission letter in declined_reason if present
+      const { data: currentReg } = await supabase
+        .from('registrations')
+        .select('declined_reason, admission_letter_url')
+        .eq('tracking_id', trackingId)
+        .single();
+
+      let effectiveReason = reason || 'Proof of payment could not be validated or transfer has not reflected.';
+      if (currentReg?.declined_reason?.includes('Admission Letter:') && !effectiveReason.includes('Admission Letter:')) {
+        effectiveReason = `${effectiveReason} | ${currentReg.declined_reason}`;
+      }
+
       const { data, error } = await supabase
         .from('registrations')
         .update({
           status: 'Declined',
-          declined_reason: reason || 'Proof of payment could not be validated or transfer has not reflected.',
+          declined_reason: effectiveReason,
         })
         .eq('tracking_id', trackingId)
         .select()
@@ -98,12 +193,84 @@ export async function POST(request: Request) {
       });
     }
 
+    // SOFT DELETE: NEVER hard delete student records from production database
     if (action === 'delete') {
-      const { error } = await supabase.from('registrations').delete().eq('tracking_id', trackingId);
-      if (error) {
-        return NextResponse.json({ error: 'Failed to delete record: ' + error.message }, { status: 500 });
+      const updatePayload: Record<string, any> = {
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+      };
+
+      let { data, error } = await supabase
+        .from('registrations')
+        .update(updatePayload)
+        .eq('tracking_id', trackingId)
+        .select()
+        .single();
+
+      // Graceful fallback if is_deleted column does not yet exist
+      if (error && (error.code === '42703' || error.message?.includes('is_deleted'))) {
+        const retry = await supabase
+          .from('registrations')
+          .update({
+            status: 'Archived',
+            declined_reason: '[ARCHIVED] Record archived by administrator.',
+          })
+          .eq('tracking_id', trackingId)
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
       }
-      return NextResponse.json({ success: true, message: 'Record deleted.' });
+
+      if (error) {
+        return NextResponse.json({ error: 'Failed to archive record: ' + error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Record ${trackingId} has been safely archived (soft deleted). It can be restored from the Archived tab.`,
+        registration: data,
+      });
+    }
+
+    // RESTORE: Restore an archived student record
+    if (action === 'restore') {
+      const updatePayload: Record<string, any> = {
+        is_deleted: false,
+        deleted_at: null,
+        status: 'Pending',
+      };
+
+      let { data, error } = await supabase
+        .from('registrations')
+        .update(updatePayload)
+        .eq('tracking_id', trackingId)
+        .select()
+        .single();
+
+      if (error && (error.code === '42703' || error.message?.includes('is_deleted'))) {
+        const retry = await supabase
+          .from('registrations')
+          .update({
+            status: 'Pending',
+            declined_reason: null,
+          })
+          .eq('tracking_id', trackingId)
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
+
+      if (error) {
+        return NextResponse.json({ error: 'Failed to restore record: ' + error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Record ${trackingId} has been successfully restored.`,
+        registration: data,
+      });
     }
 
     return NextResponse.json({ error: 'Invalid action.' }, { status: 400 });
