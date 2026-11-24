@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Terminal, ShieldCheck, Mail, Phone, MapPin, MessageCircle, Flame, Clock } from 'lucide-react';
+import { Terminal, ShieldCheck, Mail, Phone, MapPin, MessageCircle, Flame, Clock, Menu, X, FileText } from 'lucide-react';
 import type { PublicPromoData } from '@/lib/promo';
 
 export default function SiteShell({
@@ -15,6 +15,12 @@ export default function SiteShell({
 }) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith('/miraadmintymz');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   // Promotional Urgency & Countdown State - initialized from server data to prevent flash of wrong content
   const [promo, setPromo] = useState<{
@@ -206,8 +212,79 @@ export default function SiteShell({
               <span>Enroll Now</span>
               <span className="hidden sm:inline">&rarr;</span>
             </Link>
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={mobileMenuOpen}
+              className="md:hidden p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 transition flex items-center justify-center"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-white border-t border-slate-200 px-4 py-4 space-y-2 shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+            <Link
+              href="/#pricing"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3.5 py-2.5 rounded-xl text-sm font-bold text-slate-800 hover:bg-brand-50 hover:text-brand-800 transition"
+            >
+              Fees &amp; Enrollment Tracks
+            </Link>
+            <Link
+              href="/#curriculum"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3.5 py-2.5 rounded-xl text-sm font-bold text-slate-800 hover:bg-brand-50 hover:text-brand-800 transition"
+            >
+              8-Week Curriculum
+            </Link>
+            <Link
+              href="/#why-python"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3.5 py-2.5 rounded-xl text-sm font-bold text-slate-800 hover:bg-brand-50 hover:text-brand-800 transition"
+            >
+              Why Python?
+            </Link>
+            <Link
+              href="/#faq"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3.5 py-2.5 rounded-xl text-sm font-bold text-slate-800 hover:bg-brand-50 hover:text-brand-800 transition"
+            >
+              Frequently Asked Questions (FAQ)
+            </Link>
+            <a
+              href="/syllabus.pdf"
+              download="MiraTymz_Python_8Week_Syllabus.pdf"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-bold text-brand-800 bg-brand-50 border border-brand-200 transition"
+            >
+              <FileText className="w-4 h-4 text-brand-700 shrink-0" />
+              <span>Download Syllabus (PDF)</span>
+            </a>
+            <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2">
+              <Link
+                href="/status"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-center text-xs font-bold py-2.5 px-3 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
+              >
+                Check Status
+              </Link>
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-center text-xs font-bold py-2.5 px-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 transition"
+              >
+                WhatsApp DM
+              </a>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Main Content */}

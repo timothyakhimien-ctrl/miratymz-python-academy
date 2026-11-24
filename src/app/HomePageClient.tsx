@@ -228,12 +228,12 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
           </div>
 
           {/* ============================================================ */}
-          {/* 2. THE THREE ENROLLMENT TRACKS (EQUAL PROMINENCE AT THE TOP)   */}
+          {/* 2. THE THREE ENROLLMENT TRACKS & FEES                        */}
           {/* ============================================================ */}
-          <div id="enrollment-tracks" className="pt-6 sm:pt-10">
-            <div className="text-center mb-6">
+          <div id="pricing" className="pt-6 sm:pt-10 scroll-mt-24">
+            <div id="enrollment-tracks" className="text-center mb-6 scroll-mt-24">
               <span className="text-xs uppercase font-extrabold tracking-widest text-gold-400 block">
-                Three Distinct Enrollment Tracks
+                Fees, Offers &amp; Enrollment Tracks
               </span>
               <h2 className="text-2xl sm:text-3xl font-black text-white mt-1">
                 Select Your Category to Enroll
@@ -448,7 +448,7 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
       {/* ============================================================ */}
       {/* 3. PRACTICAL OUTCOMES SECTION                                */}
       {/* ============================================================ */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <section id="why-python" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 scroll-mt-24">
         <div className="text-center max-w-3xl mx-auto mb-10">
           <span className="text-xs font-bold uppercase tracking-wider text-brand-700 bg-brand-100 px-3.5 py-1 rounded-full border border-brand-200">
             Real Software Competence
@@ -503,7 +503,7 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
       {/* ============================================================ */}
       {/* 4. 8-WEEK PROGRESSIVE CURRICULUM ACCORDION                   */}
       {/* ============================================================ */}
-      <section id="curriculum" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <section id="curriculum" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 scroll-mt-24">
         <div className="text-center max-w-3xl mx-auto mb-10">
           <span className="text-xs font-bold uppercase tracking-wider text-brand-700 bg-brand-100 px-3.5 py-1 rounded-full border border-brand-200">
             Structured Syllabus
@@ -514,6 +514,16 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
           <p className="text-slate-600 mt-2 text-xs sm:text-sm leading-relaxed">
             Step-by-step progression taking you from beginner concepts to building complete applications.
           </p>
+          <div className="mt-4 flex justify-center">
+            <a
+              href="/syllabus.pdf"
+              download="MiraTymz_Python_8Week_Syllabus.pdf"
+              className="inline-flex items-center gap-2 bg-brand-900 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition"
+            >
+              <FileText className="w-4 h-4 text-gold-400" />
+              <span>Download Full Syllabus (PDF)</span>
+            </a>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -551,7 +561,7 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
       {/* ============================================================ */}
       {/* 5. FAQ SECTION                                               */}
       {/* ============================================================ */}
-      <section id="faq" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <section id="faq" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 scroll-mt-24">
         <div className="text-center mb-10">
           <span className="text-xs font-bold uppercase tracking-wider text-brand-700 bg-brand-100 px-3 py-1 rounded-full border border-brand-200">
             Frequently Asked Questions
@@ -580,42 +590,78 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
       {/* 6. COURSE GUIDE PDF PREVIEW MODAL                            */}
       {/* ============================================================ */}
       {showGuideModal && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-              <div>
-                <h3 className="font-black text-sm text-slate-900">
+        <div
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
+          onClick={() => setShowGuideModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="font-black text-sm sm:text-base text-slate-900 truncate">
                   Python Programming Fundamentals to Career Pathways
                 </h3>
-                <span className="text-xs text-slate-400">Official 8-Week Course Guide &amp; Curriculum</span>
+                <span className="text-xs text-slate-500 block">Official 8-Week Course Guide &amp; Curriculum (PDF)</span>
               </div>
               <button
+                type="button"
                 onClick={() => setShowGuideModal(false)}
-                className="text-slate-400 hover:text-slate-700 text-sm font-bold p-1"
+                aria-label="Close syllabus modal"
+                className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 text-sm font-bold flex items-center justify-center shrink-0 transition"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-4 overflow-auto flex-1 bg-slate-100 min-h-[350px] flex items-center justify-center">
+            {/* Mobile-Friendly Direct Download Banner */}
+            <div className="p-4 bg-brand-50 border-b border-brand-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="text-xs text-brand-950">
+                <strong className="block font-extrabold">8-Week Python Syllabus Ready</strong>
+                <span className="text-brand-800">Download the PDF directly or open it in a new tab for easy mobile reading.</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <a
+                  href="/syllabus.pdf"
+                  download="MiraTymz_Python_8Week_Syllabus.pdf"
+                  className="flex-1 sm:flex-initial bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-xs px-4 py-2.5 rounded-xl shadow transition text-center whitespace-nowrap"
+                >
+                  Download PDF &darr;
+                </a>
+                <a
+                  href="/syllabus.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 sm:flex-initial bg-brand-900 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow transition text-center whitespace-nowrap inline-flex items-center justify-center gap-1"
+                >
+                  <span>Open in New Tab</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+
+            <div className="p-3 sm:p-4 overflow-auto flex-1 bg-slate-100 min-h-[260px] sm:min-h-[420px] hidden sm:flex items-center justify-center">
               <iframe
-                src="/api/course-guide/download"
-                className="w-full h-[500px] border-0 rounded-xl"
-                title="Curriculum Preview"
+                src="/syllabus.pdf"
+                className="w-full h-[460px] border-0 rounded-xl bg-white"
+                title="MiraTymz Python 8-Week Curriculum Preview"
               />
             </div>
 
-            <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-              <a
-                href="/api/course-guide/download"
-                download="MiraTymz_Python_Course_Guide.pdf"
-                className="bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-xs px-4 py-2.5 rounded-xl shadow transition"
-              >
-                Download PDF File &rarr;
-              </a>
-              <button
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-white">
+              <Link
+                href="/register"
                 onClick={() => setShowGuideModal(false)}
-                className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl transition"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow transition inline-flex items-center gap-1.5"
+              >
+                <span>Ready to Enroll? Register Now</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowGuideModal(false)}
+                className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition"
               >
                 Close
               </button>

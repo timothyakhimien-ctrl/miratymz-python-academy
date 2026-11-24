@@ -28,6 +28,8 @@ import {
   KeyRound,
   GraduationCap,
   School as SchoolIcon,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { formatNaira } from '@/lib/utils';
 import type { PublicPromoData } from '@/lib/promo';
@@ -116,6 +118,13 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<{
+    fullName?: string;
+    email?: string;
+    phone?: string;
+    department?: string;
+    school?: string;
+  }>({});
   const [phoneWarning, setPhoneWarning] = useState('');
   const [showReceiptPopup, setShowReceiptPopup] = useState(false);
 
@@ -175,6 +184,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
 
   // Handle school code verification on server
   const handleVerifySchoolCode = async () => {
+    if (isSchoolCodeVerified) return; // Prevent re-submitting while already verified
     if (!selectedSchoolId) {
       setSchoolCodeError('Please select your school from the directory first.');
       return;
@@ -185,6 +195,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
     }
 
     setSchoolCodeError('');
+    setFieldErrors((prev) => ({ ...prev, school: undefined }));
     setVerifyingCode(true);
 
     try {
@@ -193,27 +204,43 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           schoolId: selectedSchoolId,
+          accessCode: schoolCodeInput.trim(),
           code: schoolCodeInput.trim(),
         }),
       });
 
       const data = await res.json();
+      const isVerifiedOk = res.ok && (data.valid === true || data.success === true) && Boolean(data.school);
 
-      if (!res.ok || !data.valid) {
+      if (!isVerifiedOk) {
         setIsSchoolCodeVerified(false);
         setVerifiedSchoolData(null);
-        setSchoolCodeError(data.error || data.message || 'Invalid school access code. Please check with your teacher or coordinator.');
+        setSchoolCodeError(
+          data.error ||
+            data.message ||
+            'Invalid school access code. Please check with your teacher or school coordinator.'
+        );
       } else {
         setIsSchoolCodeVerified(true);
         setVerifiedSchoolData(data.school);
         setAmount(data.school.fee || 5000); // ₦5,000 subsidized school fee revealed ONLY upon verification
         setSchoolCodeError('');
+        setErrorMsg('');
       }
     } catch (err: any) {
-      setSchoolCodeError('Network error verifying code. Please try again.');
+      setSchoolCodeError('Network error verifying code. Please check your connection and try again.');
     } finally {
       setVerifyingCode(false);
     }
+  };
+
+  // Allow user to unlock and change their school or code
+  const handleResetSchoolVerification = () => {
+    setIsSchoolCodeVerified(false);
+    setVerifiedSchoolData(null);
+    setSchoolCodeInput('');
+    setSchoolCodeError('');
+    setFieldErrors((prev) => ({ ...prev, school: undefined }));
   };
 
   // Handle Phone Change with Smart Real-Time Validation
@@ -232,52 +259,62 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
   const handleStep1Submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
+    const newFieldErrors: {
+      fullName?: string;
+      email?: string;
+      phone?: string;
+      department?: string;
+      school?: string;
+    } = {};
 
-    // 1. Full name validation
+    // 1. School validation (must be verified first if school category)
+    if (category === 'school') {
+      if (!selectedSchoolId) {
+        newFieldErrors.school = 'Please select your school from the directory above.';
+      } else if (!isSchoolCodeVerified || !verifiedSchoolData) {
+        newFieldErrors.school = 'Please enter and verify your school access code first to unlock the ₦5,000 rate.';
+      }
+    }
+
+    // 2. Full name validation
     const trimmedName = fullName.trim();
     if (!trimmedName || trimmedName.length < 3) {
-      setErrorMsg('Please enter your full name (First Name and Surname).');
-      window.scrollTo({ top: 180, behavior: 'smooth' });
-      return;
+      newFieldErrors.fullName = 'Please enter your full name (First Name and Surname, at least 3 characters).';
     }
 
-    // 2. Email format validation
+    // 3. Email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email.trim() || !emailRegex.test(email.trim())) {
-      setErrorMsg('Please provide a valid email address (e.g. yourname@gmail.com).');
-      window.scrollTo({ top: 220, behavior: 'smooth' });
-      return;
+      newFieldErrors.email = 'Please provide a valid email address (e.g. yourname@gmail.com).';
     }
 
-    // 3. Phone number validation
+    // 4. Phone number validation
     const rawPhone = phone.trim();
     const phoneDigits = rawPhone.replace(/\D/g, '');
     if (!rawPhone || phoneDigits.length < 10) {
-      setErrorMsg('Please enter a valid phone number with at least 10 digits (e.g. 08123456789).');
-      window.scrollTo({ top: 260, behavior: 'smooth' });
-      return;
+      newFieldErrors.phone = 'Please enter a valid WhatsApp phone number with at least 10 digits (e.g. 08123456789).';
     }
 
-    // 4. UNIBEN Department validation
+    // 5. UNIBEN Department validation
     if (category === 'uniben' && (!department || !department.trim())) {
-      setErrorMsg('Please enter your UNIBEN Department / Faculty.');
-      window.scrollTo({ top: 300, behavior: 'smooth' });
+      newFieldErrors.department = 'Please enter your UNIBEN Department / Faculty.';
+    }
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      const firstMsg =
+        newFieldErrors.school ||
+        newFieldErrors.fullName ||
+        newFieldErrors.email ||
+        newFieldErrors.phone ||
+        newFieldErrors.department ||
+        'Please complete all required fields.';
+      setErrorMsg(firstMsg);
+      window.scrollTo({ top: 140, behavior: 'smooth' });
       return;
     }
 
-    // 5. School validation (must be verified)
-    if (category === 'school') {
-      if (!selectedSchoolId) {
-        setErrorMsg('Please select your school from the directory.');
-        window.scrollTo({ top: 300, behavior: 'smooth' });
-        return;
-      }
-      if (!isSchoolCodeVerified || !verifiedSchoolData) {
-        setErrorMsg('Please verify your school access code before submitting.');
-        window.scrollTo({ top: 350, behavior: 'smooth' });
-        return;
-      }
-    }
+    setFieldErrors({});
 
     setLoading(true);
 
@@ -516,7 +553,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
       {/* STEP 1: PERSONAL & ACADEMIC DETAILS FORM                    */}
       {/* ============================================================ */}
       {step === 1 && (
-        <form onSubmit={handleStep1Submit} className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+        <form onSubmit={handleStep1Submit} noValidate className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-sm space-y-6">
           {/* Category Selector Card - 3 DISTINCT CATEGORIES */}
           <div className="space-y-3">
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
@@ -678,61 +715,97 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
 
               {/* School Search & Selection */}
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-800">
-                  1. Select Your School *
-                </label>
-                <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                  <input
-                    type="text"
-                    placeholder="Search school name or address (e.g. Go-Tegs, Phidel, Pipeline)..."
-                    value={schoolSearch}
-                    onChange={(e) => setSchoolSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
-                  />
-                </div>
-
-                <div className="max-h-48 overflow-y-auto space-y-1.5 border border-slate-200 rounded-xl p-2 bg-white">
-                  {filteredSchools.length === 0 ? (
-                    <div className="text-center py-4 text-xs text-slate-400">
-                      No schools found matching &quot;{schoolSearch}&quot;
-                    </div>
-                  ) : (
-                    filteredSchools.map((s) => (
-                      <div
-                        key={s.id}
-                        onClick={() => {
-                          setSelectedSchoolId(s.id);
-                          setIsSchoolCodeVerified(false);
-                          setVerifiedSchoolData(null);
-                          setSchoolCodeError('');
-                        }}
-                        className={`p-2.5 rounded-lg cursor-pointer transition text-left flex items-start justify-between gap-2 ${
-                          selectedSchoolId === s.id
-                            ? 'bg-emerald-100/70 border border-emerald-400 text-emerald-950 font-bold'
-                            : 'hover:bg-slate-50 border border-transparent text-slate-700'
-                        }`}
-                      >
-                        <div>
-                          <div className="text-xs font-extrabold flex items-center gap-1.5">
-                            <span>{s.name}</span>
-                            {s.id === 'gotegs-intl' && (
-                              <span className="text-[10px] bg-emerald-700 text-white px-2 py-0.5 rounded-full font-bold">
-                                Featured Partner
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[11px] text-slate-500 font-normal">
-                            {s.address} &bull; {s.area}
-                          </div>
-                        </div>
-                        {selectedSchoolId === s.id && (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-                        )}
-                      </div>
-                    ))
+                <div className="flex items-center justify-between gap-2">
+                  <label className="block text-xs font-bold text-slate-800">
+                    1. Select Your School *
+                  </label>
+                  {isSchoolCodeVerified && (
+                    <button
+                      type="button"
+                      onClick={handleResetSchoolVerification}
+                      className="text-xs font-extrabold text-emerald-800 hover:text-emerald-950 bg-white border border-emerald-300 hover:bg-emerald-50 px-3 py-1 rounded-lg transition inline-flex items-center gap-1.5 shadow-sm"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Change School</span>
+                    </button>
                   )}
                 </div>
+
+                {isSchoolCodeVerified && verifiedSchoolData ? (
+                  <div className="p-3.5 rounded-xl bg-white border-2 border-emerald-500 flex items-center justify-between gap-3 shadow-sm">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
+                          {verifiedSchoolData.name}
+                        </div>
+                        <div className="text-[11px] text-emerald-700 font-semibold">
+                          School selection locked &bull; Click &quot;Change School&quot; to switch
+                        </div>
+                      </div>
+                    </div>
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                      <input
+                        type="text"
+                        placeholder="Search school name or address (e.g. Go-Tegs, Phidel, Pipeline)..."
+                        value={schoolSearch}
+                        onChange={(e) => setSchoolSearch(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
+                      />
+                    </div>
+
+                    <div className="max-h-52 overflow-y-auto space-y-1.5 border border-slate-200 rounded-xl p-2 bg-white">
+                      {filteredSchools.length === 0 ? (
+                        <div className="text-center py-4 text-xs text-slate-400">
+                          No schools found matching &quot;{schoolSearch}&quot;
+                        </div>
+                      ) : (
+                        filteredSchools.map((s) => (
+                          <button
+                            type="button"
+                            key={s.id}
+                            onClick={() => {
+                              setSelectedSchoolId(s.id);
+                              setIsSchoolCodeVerified(false);
+                              setVerifiedSchoolData(null);
+                              setSchoolCodeError('');
+                              setFieldErrors((prev) => ({ ...prev, school: undefined }));
+                            }}
+                            className={`w-full p-3 rounded-xl cursor-pointer transition text-left flex items-start justify-between gap-2 ${
+                              selectedSchoolId === s.id
+                                ? 'bg-emerald-100/80 border-2 border-emerald-500 text-emerald-950 font-bold'
+                                : 'hover:bg-slate-50 border border-transparent text-slate-700'
+                            }`}
+                          >
+                            <div>
+                              <div className="text-xs sm:text-sm font-extrabold flex flex-wrap items-center gap-1.5">
+                                <span>{s.name}</span>
+                                {s.id === 'gotegs-intl' && (
+                                  <span className="text-[10px] bg-emerald-700 text-white px-2 py-0.5 rounded-full font-bold">
+                                    Featured Partner
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-500 font-normal mt-0.5">
+                                {s.address} &bull; {s.area}
+                              </div>
+                            </div>
+                            {selectedSchoolId === s.id && (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* School Access Code Input */}
@@ -740,30 +813,54 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
                 <label className="block text-xs font-bold text-slate-800">
                   2. Enter School Access Code *
                 </label>
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex flex-col sm:flex-row gap-2.5">
                   <div className="relative flex-1">
-                    <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                    <KeyRound className={`w-4 h-4 absolute left-3.5 top-3.5 ${isSchoolCodeVerified ? 'text-emerald-600' : 'text-slate-400'}`} />
                     <input
                       type="text"
                       placeholder="e.g. GOTEGS-2026"
                       value={schoolCodeInput}
+                      disabled={isSchoolCodeVerified || verifyingCode}
                       onChange={(e) => {
                         setSchoolCodeInput(e.target.value.toUpperCase());
-                        setIsSchoolCodeVerified(false);
-                        setVerifiedSchoolData(null);
                         setSchoolCodeError('');
+                        setFieldErrors((prev) => ({ ...prev, school: undefined }));
                       }}
-                      className="w-full pl-10 pr-4 py-2.5 text-sm uppercase font-mono tracking-wider rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !isSchoolCodeVerified) {
+                          e.preventDefault();
+                          handleVerifySchoolCode();
+                        }
+                      }}
+                      className={`w-full pl-10 pr-4 py-3 text-sm uppercase font-mono tracking-wider rounded-xl border focus:outline-none transition ${
+                        isSchoolCodeVerified
+                          ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-bold cursor-not-allowed'
+                          : schoolCodeError || fieldErrors.school
+                          ? 'bg-white border-red-400 focus:ring-2 focus:ring-red-500'
+                          : 'bg-white border-slate-300 focus:ring-2 focus:ring-emerald-600'
+                      }`}
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleVerifySchoolCode}
-                    disabled={verifyingCode || !selectedSchoolId || !schoolCodeInput.trim()}
-                    className="bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow transition disabled:opacity-50 whitespace-nowrap flex items-center justify-center gap-1.5"
+                    disabled={isSchoolCodeVerified || verifyingCode || !selectedSchoolId || !schoolCodeInput.trim()}
+                    className={`font-extrabold text-xs sm:text-sm px-5 py-3 rounded-xl shadow transition whitespace-nowrap flex items-center justify-center gap-2 min-h-[46px] ${
+                      isSchoolCodeVerified
+                        ? 'bg-emerald-600 text-white cursor-default opacity-100'
+                        : 'bg-emerald-700 hover:bg-emerald-800 text-white disabled:opacity-50 disabled:cursor-not-allowed'
+                    }`}
                   >
                     {verifyingCode ? (
-                      <span>Verifying...</span>
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Verifying Code...</span>
+                      </>
+                    ) : isSchoolCodeVerified ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Verified</span>
+                      </>
                     ) : (
                       <>
                         <ShieldCheck className="w-4 h-4" />
@@ -773,28 +870,33 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
                   </button>
                 </div>
 
-                {schoolCodeError && (
-                  <p className="text-xs text-red-600 font-semibold flex items-center gap-1 mt-1">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>{schoolCodeError}</span>
-                  </p>
+                {(schoolCodeError || (!isSchoolCodeVerified && fieldErrors.school)) && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-300 text-xs text-red-800 font-semibold flex items-start gap-2 mt-1">
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <span>{schoolCodeError || fieldErrors.school}</span>
+                  </div>
                 )}
 
                 {/* VERIFIED SUCCESS CARD - STRICTLY REVEALS ₦5,000 ONLY HERE */}
                 {isSchoolCodeVerified && verifiedSchoolData && (
-                  <div className="p-3.5 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-950 text-xs flex items-center justify-between gap-3 animate-in fade-in duration-200">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
+                  <div className="p-4 rounded-xl bg-emerald-100 border-2 border-emerald-400 text-emerald-950 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200 shadow-sm">
+                    <div className="flex items-start sm:items-center gap-2.5">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5 sm:mt-0" />
                       <div>
-                        <strong>Code Verified!</strong> {verifiedSchoolData.name}
-                        <div className="text-[11px] text-emerald-800 font-semibold">
-                          Subsidized Tuition Rate: <span className="font-black text-sm">₦{(5000).toLocaleString()}</span> (Reduced for student cohort)
-                        </div>
+                        <strong className="text-sm block">Access Code Verified Successfully!</strong>
+                        <span className="text-emerald-900 font-semibold block">
+                          {verifiedSchoolData.name} &bull; Subsidized Tuition:{' '}
+                          <span className="font-black text-sm">₦{(5000).toLocaleString()}</span>
+                        </span>
                       </div>
                     </div>
-                    <span className="text-[11px] font-black uppercase text-emerald-800 bg-emerald-200/80 px-2 py-0.5 rounded-md shrink-0">
-                      Active
-                    </span>
+                    <button
+                      type="button"
+                      onClick={handleResetSchoolVerification}
+                      className="text-[11px] font-extrabold text-emerald-900 bg-white/90 hover:bg-white border border-emerald-300 px-3 py-1.5 rounded-lg transition shrink-0 self-start sm:self-auto"
+                    >
+                      Change School / Code
+                    </button>
                   </div>
                 )}
               </div>
@@ -833,10 +935,23 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
                   required
                   placeholder="e.g. Timothy Akhimien"
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                    if (fieldErrors.fullName) setFieldErrors((prev) => ({ ...prev, fullName: undefined }));
+                  }}
+                  className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:border-transparent transition ${
+                    fieldErrors.fullName
+                      ? 'border-red-400 bg-red-50/20 focus:ring-red-500'
+                      : 'border-slate-300 focus:ring-brand-600'
+                  }`}
                 />
               </div>
+              {fieldErrors.fullName && (
+                <p className="text-[11px] text-red-600 font-semibold mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 shrink-0" />
+                  <span>{fieldErrors.fullName}</span>
+                </p>
+              )}
             </div>
 
             <div>
@@ -850,13 +965,26 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
                   required
                   placeholder="e.g. student@gmail.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                  }}
+                  className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:border-transparent transition ${
+                    fieldErrors.email
+                      ? 'border-red-400 bg-red-50/20 focus:ring-red-500'
+                      : 'border-slate-300 focus:ring-brand-600'
+                  }`}
                 />
               </div>
+              {fieldErrors.email && (
+                <p className="text-[11px] text-red-600 font-semibold mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 shrink-0" />
+                  <span>{fieldErrors.email}</span>
+                </p>
+              )}
             </div>
 
-            <div className={category === 'general' ? 'sm:col-span-2' : ''}>
+            <div className={category !== 'uniben' ? 'sm:col-span-2' : ''}>
               <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                 <label className="text-xs font-bold text-slate-700">
                   WhatsApp Phone Number *
@@ -874,17 +1002,29 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
                   required
                   placeholder="e.g. 0812 345 6789"
                   value={phone}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  onChange={(e) => {
+                    handlePhoneChange(e.target.value);
+                    if (fieldErrors.phone) setFieldErrors((prev) => ({ ...prev, phone: undefined }));
+                  }}
                   className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:border-transparent transition ${
-                    phoneWarning
+                    fieldErrors.phone
+                      ? 'border-red-400 bg-red-50/20 focus:ring-red-500'
+                      : phoneWarning
                       ? 'border-amber-400 bg-amber-50/20 focus:ring-amber-500'
                       : 'border-slate-300 focus:ring-brand-600'
                   }`}
                 />
               </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">
-                Digits only (e.g. 08123456789). This number is verified to add you to the Paid Members WhatsApp Group upon admission.
-              </span>
+              {fieldErrors.phone ? (
+                <p className="text-[11px] text-red-600 font-semibold mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 shrink-0" />
+                  <span>{fieldErrors.phone}</span>
+                </p>
+              ) : (
+                <span className="text-[11px] text-slate-500 mt-1 block">
+                  Digits only (e.g. 08123456789). This number is verified to add you to the Paid Members WhatsApp Group upon admission.
+                </span>
+              )}
             </div>
 
             {/* UNIBEN Specific Fields */}
@@ -918,10 +1058,23 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
                       required
                       placeholder="e.g. Computer Science / Engineering"
                       value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+                      onChange={(e) => {
+                        setDepartment(e.target.value);
+                        if (fieldErrors.department) setFieldErrors((prev) => ({ ...prev, department: undefined }));
+                      }}
+                      className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:border-transparent transition ${
+                        fieldErrors.department
+                          ? 'border-red-400 bg-red-50/20 focus:ring-red-500'
+                          : 'border-slate-300 focus:ring-brand-600'
+                      }`}
                     />
                   </div>
+                  {fieldErrors.department && (
+                    <p className="text-[11px] text-red-600 font-semibold mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      <span>{fieldErrors.department}</span>
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -973,31 +1126,75 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
             </span>
           </div>
 
-          <div className="pt-4">
+          {/* Live Readiness Checklist */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+            <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+              Form Completion Checklist
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+              {category === 'school' && (
+                <div className={`flex items-center gap-1.5 font-semibold ${isSchoolCodeVerified ? 'text-emerald-700' : 'text-amber-700'}`}>
+                  {isSchoolCodeVerified ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
+                  <span>{isSchoolCodeVerified ? 'School access code verified' : 'Verify your school access code'}</span>
+                </div>
+              )}
+              <div className={`flex items-center gap-1.5 font-semibold ${fullName.trim().length >= 3 ? 'text-emerald-700' : 'text-slate-500'}`}>
+                {fullName.trim().length >= 3 ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 h-3.5 rounded-full border border-slate-400 inline-block shrink-0" />}
+                <span>Full name entered</span>
+              </div>
+              <div className={`flex items-center gap-1.5 font-semibold ${/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? 'text-emerald-700' : 'text-slate-500'}`}>
+                {/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 h-3.5 rounded-full border border-slate-400 inline-block shrink-0" />}
+                <span>Valid email address</span>
+              </div>
+              <div className={`flex items-center gap-1.5 font-semibold ${phone.replace(/\D/g, '').length >= 10 ? 'text-emerald-700' : 'text-slate-500'}`}>
+                {phone.replace(/\D/g, '').length >= 10 ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 h-3.5 rounded-full border border-slate-400 inline-block shrink-0" />}
+                <span>WhatsApp phone (10+ digits)</span>
+              </div>
+              {category === 'uniben' && (
+                <div className={`flex items-center gap-1.5 font-semibold ${department.trim().length > 0 ? 'text-emerald-700' : 'text-slate-500'}`}>
+                  {department.trim().length > 0 ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 h-3.5 rounded-full border border-slate-400 inline-block shrink-0" />}
+                  <span>Department / Faculty entered</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-2">
             <button
               type="submit"
-              disabled={loading || (category === 'school' && (!isSchoolCodeVerified || !selectedSchoolId))}
-              className="w-full bg-brand-800 hover:bg-brand-900 text-white font-extrabold text-base py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
+              disabled={loading}
+              className={`w-full font-extrabold text-sm sm:text-base py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 min-h-[54px] ${
+                loading
+                  ? 'bg-brand-700 text-white opacity-80 cursor-wait'
+                  : category === 'school' && !isSchoolCodeVerified
+                  ? 'bg-slate-800 hover:bg-slate-900 text-white'
+                  : 'bg-brand-800 hover:bg-brand-900 text-white'
+              }`}
             >
               {loading ? (
-                <span>Generating Payment Order...</span>
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Generating Payment Order...</span>
+                </>
               ) : (
                 <>
                   <span>
-                    Proceed to Payment (
                     {category === 'school'
-                      ? formatNaira(5000)
+                      ? isSchoolCodeVerified
+                        ? `Proceed to Payment (${formatNaira(5000)})`
+                        : 'Verify School Code & Proceed'
                       : category === 'uniben'
-                      ? formatNaira(fees.isOfferActive ? fees.uniben : fees.unibenNormal)
-                      : formatNaira(fees.isOfferActive ? fees.general : fees.generalNormal)}
-                    )
+                      ? `Proceed to Payment (${formatNaira(fees.isOfferActive ? fees.uniben : fees.unibenNormal)})`
+                      : `Proceed to Payment (${formatNaira(fees.isOfferActive ? fees.general : fees.generalNormal)})`}
                   </span>
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
             </button>
-            <p className="text-center text-xs text-slate-400 mt-2">
-              Next step: Bank Account details and payment proof upload.
+            <p className="text-center text-xs text-slate-500 mt-2">
+              {category === 'school' && !isSchoolCodeVerified
+                ? 'Please verify your school access code above before continuing.'
+                : 'Next step: Bank Account details and payment proof upload.'}
             </p>
           </div>
         </form>
@@ -1249,7 +1446,10 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
                 className="w-full sm:flex-1 bg-gradient-to-r from-brand-800 to-emerald-900 hover:from-brand-900 hover:to-emerald-950 text-white font-extrabold text-sm sm:text-base py-3.5 sm:py-4 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 text-center"
               >
                 {loading ? (
-                  <span>Uploading Receipt &amp; Submitting...</span>
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin shrink-0" />
+                    <span>Uploading Receipt &amp; Submitting...</span>
+                  </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-5 h-5 text-brand-400 shrink-0" />

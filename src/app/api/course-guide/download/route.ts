@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServiceSupabase } from '@/lib/supabase';
+import fs from 'fs';
+import path from 'path';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -8,15 +10,28 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const trackingId = searchParams.get('trackingId')?.trim();
+    const forceDownload = searchParams.get('download') === '1' || searchParams.get('download') === 'true';
 
-    // If no tracking ID provided or visitor is unverified, redirect to status verification
+    // Public syllabus request (no trackingId): serve the official 8-week syllabus PDF directly
     if (!trackingId) {
-      return NextResponse.redirect(new URL('/status?notice=verification_required', request.url));
+      const syllabusPath = path.join(process.cwd(), 'public', 'syllabus.pdf');
+      if (fs.existsSync(syllabusPath)) {
+        const fileBuffer = fs.readFileSync(syllabusPath);
+        return new NextResponse(fileBuffer, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `${forceDownload ? 'attachment' : 'inline'}; filename="MiraTymz_Python_8Week_Syllabus.pdf"`,
+            'Cache-Control': 'public, max-age=3600',
+          },
+        });
+      }
+      return NextResponse.redirect(new URL('/syllabus.pdf', request.url));
     }
 
     const supabase = getServiceSupabase();
 
-    // Verify student is actually approved
+    // Verify student is actually approved when requesting protected study package via trackingId
     const { data: record, error } = await supabase
       .from('registrations')
       .select('status')
@@ -46,6 +61,6 @@ export async function GET(request: Request) {
     const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(targetFileName);
     return NextResponse.redirect(urlData.publicUrl);
   } catch (err: any) {
-    return NextResponse.redirect(new URL('/status', request.url));
+    return NextResponse.redirect(new URL('/syllabus.pdf', request.url));
   }
 }

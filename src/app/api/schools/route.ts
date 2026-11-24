@@ -38,6 +38,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
+      valid: true,
       message: 'School code verified successfully! ₦5,000 discounted student tuition activated.',
       school: result.school,
     });
