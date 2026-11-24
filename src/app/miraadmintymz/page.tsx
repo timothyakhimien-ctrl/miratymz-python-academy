@@ -34,6 +34,10 @@ import {
   KeyRound,
   Check,
   Copy,
+  LayoutDashboard,
+  GraduationCap,
+  ArrowRight,
+  ShieldAlert,
 } from 'lucide-react';
 import { formatNaira } from '@/lib/utils';
 
@@ -60,8 +64,8 @@ export default function AdminPage() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
 
-  // Active Tab: 'registrations' | 'schools' | 'settings'
-  const [activeTab, setActiveTab] = useState<'registrations' | 'schools' | 'settings'>('registrations');
+  // Active Tab: 'overview' | 'registrations' | 'schools' | 'settings'
+  const [activeTab, setActiveTab] = useState<'overview' | 'registrations' | 'schools' | 'settings'>('registrations');
 
   // Registrations Data State
   const [registrations, setRegistrations] = useState<any[]>([]);
@@ -78,6 +82,7 @@ export default function AdminPage() {
     totalRevenue: 0,
     expectedRevenue: 0,
     underReviewPotential: 0,
+    verifiedPaymentsCount: 0,
   });
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -297,7 +302,10 @@ export default function AdminPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(editingSchool),
+        body: JSON.stringify({
+          action: 'save',
+          school: editingSchool,
+        }),
       });
 
       const data = await res.json();
@@ -309,6 +317,57 @@ export default function AdminPage() {
       await fetchSchools();
     } catch (err: any) {
       alert(err.message || 'Error saving school');
+    }
+  };
+
+  // Toggle School Active / Disabled
+  const handleToggleSchool = async (schoolId: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch('/api/admin/schools', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'toggle',
+          schoolId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to toggle school status');
+      showToast(data.message || 'School status updated.');
+      await fetchSchools();
+    } catch (err: any) {
+      alert(err.message || 'Error toggling school status');
+    }
+  };
+
+  // Delete School
+  const handleDeleteSchool = async (schoolId: string, schoolName: string) => {
+    if (!token) return;
+    if (!confirm(`Are you sure you want to remove "${schoolName}" from the school directory?`)) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/admin/schools', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'delete',
+          schoolId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete school');
+      showToast(data.message || 'School removed from directory.');
+      await fetchSchools();
+    } catch (err: any) {
+      alert(err.message || 'Error deleting school');
     }
   };
 
@@ -346,10 +405,10 @@ export default function AdminPage() {
     }
   };
 
-  // Action on registration (Approve / Added to VIP / Decline / Archive / Restore)
+  // Action on registration (Approve / Added to VIP / Decline / Archive / Restore / Permanent Delete)
   const handleAction = async (
     trackingId: string,
-    action: 'approve' | 'added_to_vip' | 'decline' | 'delete' | 'restore',
+    action: 'approve' | 'added_to_vip' | 'decline' | 'delete' | 'restore' | 'permanent_delete',
     regObj?: any
   ) => {
     if (!token) return;
@@ -391,7 +450,13 @@ export default function AdminPage() {
     }
 
     if (action === 'restore') {
-      if (!confirm(`Restore registration ${trackingId} to active status?`)) {
+      if (!confirm(`Restore registration ${trackingId} back to active records?`)) {
+        return;
+      }
+    }
+
+    if (action === 'permanent_delete') {
+      if (!confirm(`CAUTION: Permanently delete record ${trackingId} from the database? This cannot be undone.`)) {
         return;
       }
     }
@@ -425,8 +490,11 @@ export default function AdminPage() {
 
   // Helper to extract admission letter URL from record
   const getAdmissionUrl = (reg: any): string | null => {
-    if (reg.admission_letter_url) return reg.admission_letter_url;
     if (reg.declined_reason && reg.declined_reason.includes('Admission Letter:')) {
+      const match = reg.declined_reason.match(/https?:\/\/[^\s]+/);
+      if (match) return match[0];
+    }
+    if (reg.declined_reason && reg.declined_reason.includes('UNIBEN Clearance Slip:')) {
       const match = reg.declined_reason.match(/https?:\/\/[^\s]+/);
       if (match) return match[0];
     }
@@ -543,7 +611,7 @@ export default function AdminPage() {
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              Review transaction receipts, manage Isheri Pipeline partner schools, and admit paid students.
+              Manage student approvals, payment verification, Isheri Pipeline schools, and financial reporting.
             </p>
           </div>
         </div>
@@ -572,25 +640,25 @@ export default function AdminPage() {
         <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
           <span className="text-xs text-slate-400 font-bold uppercase block">Active Students</span>
           <span className="text-2xl font-black text-slate-900 mt-1 block">{stats.total}</span>
-          <span className="text-[10px] text-slate-400">Excludes soft-deleted</span>
+          <span className="text-[10px] text-slate-500">In database</span>
         </div>
 
         <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl shadow-sm">
           <span className="text-xs text-blue-800 font-bold uppercase block">Under Review</span>
           <span className="text-2xl font-black text-blue-900 mt-1 block">{stats.underReview}</span>
-          <span className="text-[10px] text-blue-700 font-semibold">{stats.underReviewPotential > 0 ? formatNaira(stats.underReviewPotential) : 'Awaiting proof'}</span>
+          <span className="text-[10px] text-blue-700 font-semibold">{formatNaira(stats.underReviewPotential)} pending</span>
         </div>
 
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl shadow-sm">
           <span className="text-xs text-amber-800 font-bold uppercase block">Pending Transfer</span>
           <span className="text-2xl font-black text-amber-900 mt-1 block">{stats.pending}</span>
-          <span className="text-[10px] text-amber-700">Order generated</span>
+          <span className="text-[10px] text-amber-700">Awaiting payment</span>
         </div>
 
         <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl shadow-sm">
           <span className="text-xs text-emerald-800 font-bold uppercase block">Approved</span>
           <span className="text-2xl font-black text-emerald-900 mt-1 block">{stats.approved}</span>
-          <span className="text-[10px] text-emerald-700 font-semibold">Verified paid</span>
+          <span className="text-[10px] text-emerald-700 font-semibold">Verified admissions</span>
         </div>
 
         <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl shadow-sm">
@@ -605,16 +673,28 @@ export default function AdminPage() {
             {formatNaira(stats.totalRevenue)}
           </span>
           <span className="text-[10px] text-slate-400 block mt-0.5">
-            Target: {formatNaira(stats.expectedRevenue)}
+            Expected: {formatNaira(stats.expectedRevenue)}
           </span>
         </div>
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex border-b border-slate-200 space-x-6 text-sm font-bold">
+      <div className="flex border-b border-slate-200 space-x-6 text-sm font-bold overflow-x-auto pb-1">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`pb-3 flex items-center gap-2 transition border-b-2 whitespace-nowrap ${
+            activeTab === 'overview'
+              ? 'border-brand-800 text-brand-900'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span>Dashboard Overview</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('registrations')}
-          className={`pb-3 flex items-center gap-2 transition border-b-2 ${
+          className={`pb-3 flex items-center gap-2 transition border-b-2 whitespace-nowrap ${
             activeTab === 'registrations'
               ? 'border-brand-800 text-brand-900'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -631,7 +711,7 @@ export default function AdminPage() {
 
         <button
           onClick={() => setActiveTab('schools')}
-          className={`pb-3 flex items-center gap-2 transition border-b-2 ${
+          className={`pb-3 flex items-center gap-2 transition border-b-2 whitespace-nowrap ${
             activeTab === 'schools'
               ? 'border-brand-800 text-brand-900'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -643,7 +723,7 @@ export default function AdminPage() {
 
         <button
           onClick={() => setActiveTab('settings')}
-          className={`pb-3 flex items-center gap-2 transition border-b-2 ${
+          className={`pb-3 flex items-center gap-2 transition border-b-2 whitespace-nowrap ${
             activeTab === 'settings'
               ? 'border-brand-800 text-brand-900'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -655,7 +735,87 @@ export default function AdminPage() {
       </div>
 
       {/* ============================================================ */}
-      {/* TAB 1: REGISTRATIONS MANAGEMENT TABLE                         */}
+      {/* TAB 1: EXECUTIVE OVERVIEW & CATEGORY BREAKDOWN               */}
+      {/* ============================================================ */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* University Students Card */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center font-bold">
+                  <GraduationCap className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-slate-400">Track 1</span>
+              </div>
+              <span className="text-xs text-slate-500 font-semibold block uppercase">University Students</span>
+              <span className="text-3xl font-black text-slate-900 mt-1 block">{stats.unibenCount}</span>
+              <p className="text-xs text-slate-400 mt-2">
+                Undergraduates enrolled from UNIBEN and tertiary institutions across all departments.
+              </p>
+            </div>
+
+            {/* School Students Card */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                  <SchoolIcon className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-slate-400">Track 2</span>
+              </div>
+              <span className="text-xs text-slate-500 font-semibold block uppercase">School Students</span>
+              <span className="text-3xl font-black text-emerald-900 mt-1 block">{stats.schoolCount}</span>
+              <p className="text-xs text-slate-400 mt-2">
+                Secondary school students from Go-Tegs International School and Isheri Pipeline partner schools.
+              </p>
+            </div>
+
+            {/* General Public Card */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center font-bold">
+                  <User className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-slate-400">Track 3</span>
+              </div>
+              <span className="text-xs text-slate-500 font-semibold block uppercase">General Public</span>
+              <span className="text-3xl font-black text-slate-900 mt-1 block">{stats.generalCount}</span>
+              <p className="text-xs text-slate-400 mt-2">
+                Working professionals, graduates, and general tech enthusiasts enrolled.
+              </p>
+            </div>
+          </div>
+
+          {/* Financial Summary Box */}
+          <div className="bg-gradient-to-r from-brand-950 via-slate-900 to-brand-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-brand-800 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="space-y-2 text-center md:text-left">
+              <span className="text-xs font-black uppercase tracking-widest text-gold-400 block">
+                Financial Operations Ledger
+              </span>
+              <h3 className="text-2xl font-black text-white">
+                Verified Academy Revenue: {formatNaira(stats.totalRevenue)}
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
+                Calculated strictly from approved student payments. An additional <strong>{formatNaira(stats.underReviewPotential)}</strong> is currently under review across {stats.underReview} pending receipts.
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setStatusFilter('Under Review');
+                setActiveTab('registrations');
+              }}
+              className="bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-xs sm:text-sm px-6 py-3.5 rounded-xl shadow transition flex items-center gap-2 shrink-0"
+            >
+              <span>Review Pending Receipts ({stats.underReview})</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* TAB 2: REGISTRATIONS MANAGEMENT TABLE                         */}
       {/* ============================================================ */}
       {activeTab === 'registrations' && (
         <div className="space-y-4">
@@ -792,7 +952,7 @@ export default function AdminPage() {
                                 : 'General Public'}
                             </span>
                             <div className="font-semibold text-slate-800 text-[11px] mt-1">
-                              {reg.school_name || (reg.institution === 'General Public' ? 'General Enrollment' : reg.institution)}
+                              {reg.institution === 'General Public' ? 'General Enrollment' : reg.institution}
                             </div>
                             {reg.department && reg.department !== 'General' && (
                               <div className="text-[10px] text-slate-400">
@@ -801,24 +961,12 @@ export default function AdminPage() {
                             )}
                           </td>
 
-                          <td className="py-3.5 px-4">
-                            <div className="font-extrabold text-slate-900 text-sm">
-                              {formatNaira(reg.amount)}
-                            </div>
-                            {reg.verified_amount !== null && reg.verified_amount !== undefined && (
-                              <div className="text-[10px] text-emerald-700 font-bold">
-                                Verified: {formatNaira(reg.verified_amount)}
-                              </div>
-                            )}
-                            {reg.payment_reference && (
-                              <div className="text-[9px] text-slate-400 font-mono">
-                                Ref: {reg.payment_reference}
-                              </div>
-                            )}
+                          <td className="py-3.5 px-4 font-extrabold text-slate-900 text-sm">
+                            {formatNaira(reg.amount)}
                           </td>
 
                           <td className="py-3.5 px-4">
-                            {reg.is_deleted || reg.status === 'Archived' ? (
+                            {reg.status === 'Archived' ? (
                               <span className="bg-slate-200 text-slate-700 font-black text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 w-max">
                                 <Trash2 className="w-3.5 h-3.5 text-slate-500" />
                                 <span>Archived</span>
@@ -852,7 +1000,6 @@ export default function AdminPage() {
                           </td>
 
                           <td className="py-3.5 px-4 space-y-1">
-                            {/* Dual Document Trigger */}
                             <div className="flex flex-col gap-1 items-start">
                               {reg.receipt_url && (
                                 <button
@@ -897,16 +1044,26 @@ export default function AdminPage() {
                           </td>
 
                           <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
-                            {/* Archived Restore Action */}
-                            {reg.is_deleted || reg.status === 'Archived' ? (
-                              <button
-                                onClick={() => handleAction(reg.tracking_id, 'restore')}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition inline-flex items-center gap-1"
-                                title="Restore this record back to active records"
-                              >
-                                <RotateCcw className="w-3 h-3" />
-                                <span>Restore Record</span>
-                              </button>
+                            {/* Archived Tab Actions: Restore or Permanent Delete */}
+                            {reg.status === 'Archived' ? (
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  onClick={() => handleAction(reg.tracking_id, 'restore')}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition inline-flex items-center gap-1"
+                                  title="Restore this record back to active records"
+                                >
+                                  <RotateCcw className="w-3 h-3" />
+                                  <span>Restore</span>
+                                </button>
+                                <button
+                                  onClick={() => handleAction(reg.tracking_id, 'permanent_delete')}
+                                  className="bg-red-600 hover:bg-red-700 text-white font-bold text-[11px] px-2.5 py-1.5 rounded-lg shadow-sm transition inline-flex items-center gap-1"
+                                  title="Permanently delete from database"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
                             ) : (
                               <>
                                 {reg.status === 'Approved' && (
@@ -942,7 +1099,7 @@ export default function AdminPage() {
                                 <button
                                   onClick={() => handleAction(reg.tracking_id, 'delete')}
                                   className="bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 p-1.5 rounded-lg transition inline-flex items-center"
-                                  title="Archive / Soft Delete (Can be restored)"
+                                  title="Archive / Soft Delete"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -961,7 +1118,7 @@ export default function AdminPage() {
       )}
 
       {/* ============================================================ */}
-      {/* TAB 2: ISHERI PIPELINE SCHOOLS DIRECTORY MANAGEMENT          */}
+      {/* TAB 3: ISHERI PIPELINE SCHOOLS DIRECTORY MANAGEMENT          */}
       {/* ============================================================ */}
       {activeTab === 'schools' && (
         <div className="space-y-4">
@@ -1062,18 +1219,20 @@ export default function AdminPage() {
                         </td>
 
                         <td className="py-3.5 px-4">
-                          {school.isEnabled ? (
-                            <span className="bg-emerald-100 text-emerald-900 font-bold text-[11px] px-2.5 py-0.5 rounded-full">
-                              Active
-                            </span>
-                          ) : (
-                            <span className="bg-slate-200 text-slate-700 font-bold text-[11px] px-2.5 py-0.5 rounded-full">
-                              Disabled
-                            </span>
-                          )}
+                          <button
+                            onClick={() => handleToggleSchool(school.id)}
+                            className={`font-bold text-[11px] px-2.5 py-1 rounded-full transition cursor-pointer ${
+                              school.isEnabled
+                                ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900'
+                                : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                            }`}
+                            title="Click to toggle status"
+                          >
+                            {school.isEnabled ? '✓ Active' : '✕ Disabled'}
+                          </button>
                         </td>
 
-                        <td className="py-3.5 px-4 text-right">
+                        <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
                           <button
                             onClick={() => {
                               setEditingSchool({ ...school });
@@ -1081,8 +1240,17 @@ export default function AdminPage() {
                             }}
                             className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3 py-1.5 rounded-lg transition"
                           >
-                            Edit Config
+                            Edit
                           </button>
+                          {school.id !== 'gotegs-intl' && (
+                            <button
+                              onClick={() => handleDeleteSchool(school.id, school.name)}
+                              className="bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 p-1.5 rounded-lg transition inline-flex items-center"
+                              title="Delete School"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -1095,7 +1263,7 @@ export default function AdminPage() {
       )}
 
       {/* ============================================================ */}
-      {/* TAB 3: BANK & ACADEMY SETTINGS FORM                           */}
+      {/* TAB 4: BANK & ACADEMY SETTINGS FORM                           */}
       {/* ============================================================ */}
       {activeTab === 'settings' && (
         <form

@@ -17,7 +17,6 @@ export async function POST(request: Request) {
       reason,
       verifiedAmount,
       paymentReference,
-      paymentNotes,
     } = await request.json();
 
     if (!trackingId || !action) {
@@ -26,6 +25,26 @@ export async function POST(request: Request) {
 
     const supabase = getServiceSupabase();
 
+    // 1. Fetch current record to preserve documents and details
+    const { data: currentReg, error: fetchErr } = await supabase
+      .from('registrations')
+      .select('*')
+      .eq('tracking_id', trackingId)
+      .single();
+
+    if (fetchErr || !currentReg) {
+      return NextResponse.json({ error: `Registration ${trackingId} not found.` }, { status: 404 });
+    }
+
+    // Helper to preserve admission letter stored in declined_reason
+    const preservedAdmission =
+      currentReg.declined_reason?.includes('Admission Letter:') ||
+      currentReg.declined_reason?.includes('UNIBEN Admission Letter:') ||
+      currentReg.declined_reason?.includes('UNIBEN Clearance Slip:')
+        ? currentReg.declined_reason
+        : null;
+
+    // 2. VIP GROUP JOINED
     if (action === 'added_to_vip') {
       const { data, error } = await supabase
         .from('registrations')
@@ -42,63 +61,30 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: `Student ${trackingId} is now marked as Added to VIP Group.`,
+        message: `Student ${trackingId} marked as Joined VIP Group.`,
         registration: data,
       });
     }
 
+    // 3. APPROVE REGISTRATION & VERIFY PAYMENT
     if (action === 'approve') {
-      // Check current registration to preserve admission letter and notes
-      const { data: currentReg } = await supabase
-        .from('registrations')
-        .select('*')
-        .eq('tracking_id', trackingId)
-        .single();
-
-      const preservedClearance =
-        currentReg?.declined_reason?.includes('UNIBEN Clearance Slip:') ||
-        currentReg?.declined_reason?.includes('UNIBEN Admission Letter:') ||
-        currentReg?.declined_reason?.includes('Admission Letter:')
-          ? currentReg.declined_reason
-          : null;
+      let notes = preservedAdmission || '';
+      if (verifiedAmount) {
+        notes = `${notes ? notes + ' | ' : ''}[VERIFIED: ₦${Number(verifiedAmount).toLocaleString()}${paymentReference ? ' | Ref: ' + paymentReference : ''}]`;
+      }
 
       const updatePayload: Record<string, any> = {
         status: 'Approved',
         approved_at: new Date().toISOString(),
-        declined_reason: preservedClearance,
+        declined_reason: notes || null,
       };
 
-      if (verifiedAmount !== undefined && verifiedAmount !== null && !isNaN(Number(verifiedAmount))) {
-        updatePayload.verified_amount = Number(verifiedAmount);
-      }
-      if (paymentReference) {
-        updatePayload.payment_reference = paymentReference.trim();
-      }
-      if (paymentNotes) {
-        updatePayload.payment_notes = paymentNotes.trim();
-      }
-
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from('registrations')
         .update(updatePayload)
         .eq('tracking_id', trackingId)
         .select()
         .single();
-
-      // Graceful fallback if verified_amount/payment_reference columns aren't in schema yet
-      if (error && (error.code === '42703' || error.message?.includes('column'))) {
-        delete updatePayload.verified_amount;
-        delete updatePayload.payment_reference;
-        delete updatePayload.payment_notes;
-        const retry = await supabase
-          .from('registrations')
-          .update(updatePayload)
-          .eq('tracking_id', trackingId)
-          .select()
-          .single();
-        data = retry.data;
-        error = retry.error;
-      }
 
       if (error) {
         return NextResponse.json({ error: 'Failed to approve registration: ' + error.message }, { status: 500 });
@@ -106,70 +92,16 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: `Registration ${trackingId} has been successfully approved! Student is now granted access to the Paid Members WhatsApp Community.`,
+        message: `Registration ${trackingId} successfully approved! Student granted access to VIP group.`,
         registration: data,
       });
     }
 
-    if (action === 'verify_payment') {
-      const updatePayload: Record<string, any> = {
-        status: 'Approved',
-        approved_at: new Date().toISOString(),
-      };
-
-      if (verifiedAmount !== undefined && verifiedAmount !== null && !isNaN(Number(verifiedAmount))) {
-        updatePayload.verified_amount = Number(verifiedAmount);
-      }
-      if (paymentReference) {
-        updatePayload.payment_reference = paymentReference.trim();
-      }
-      if (paymentNotes) {
-        updatePayload.payment_notes = paymentNotes.trim();
-      }
-
-      let { data, error } = await supabase
-        .from('registrations')
-        .update(updatePayload)
-        .eq('tracking_id', trackingId)
-        .select()
-        .single();
-
-      if (error && (error.code === '42703' || error.message?.includes('column'))) {
-        delete updatePayload.verified_amount;
-        delete updatePayload.payment_reference;
-        delete updatePayload.payment_notes;
-        const retry = await supabase
-          .from('registrations')
-          .update(updatePayload)
-          .eq('tracking_id', trackingId)
-          .select()
-          .single();
-        data = retry.data;
-        error = retry.error;
-      }
-
-      if (error) {
-        return NextResponse.json({ error: 'Failed to record payment verification: ' + error.message }, { status: 500 });
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: `Payment for ${trackingId} recorded and verified (₦${verifiedAmount || 'confirmed'}).`,
-        registration: data,
-      });
-    }
-
+    // 4. DECLINE REGISTRATION
     if (action === 'decline') {
-      // Preserve admission letter in declined_reason if present
-      const { data: currentReg } = await supabase
-        .from('registrations')
-        .select('declined_reason, admission_letter_url')
-        .eq('tracking_id', trackingId)
-        .single();
-
       let effectiveReason = reason || 'Proof of payment could not be validated or transfer has not reflected.';
-      if (currentReg?.declined_reason?.includes('Admission Letter:') && !effectiveReason.includes('Admission Letter:')) {
-        effectiveReason = `${effectiveReason} | ${currentReg.declined_reason}`;
+      if (preservedAdmission && !effectiveReason.includes('Admission Letter:')) {
+        effectiveReason = `${effectiveReason} | ${preservedAdmission}`;
       }
 
       const { data, error } = await supabase
@@ -188,39 +120,27 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: `Registration ${trackingId} has been marked as Declined.`,
+        message: `Registration ${trackingId} marked as Declined.`,
         registration: data,
       });
     }
 
-    // SOFT DELETE: NEVER hard delete student records from production database
-    if (action === 'delete') {
-      const updatePayload: Record<string, any> = {
-        is_deleted: true,
-        deleted_at: new Date().toISOString(),
-      };
+    // 5. ARCHIVE / SOFT DELETE (100% reliable - uses status column)
+    if (action === 'delete' || action === 'archive') {
+      let archiveNote = `[ARCHIVED: ${new Date().toISOString()}]`;
+      if (currentReg.declined_reason) {
+        archiveNote = `${archiveNote} | ${currentReg.declined_reason}`;
+      }
 
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from('registrations')
-        .update(updatePayload)
+        .update({
+          status: 'Archived',
+          declined_reason: archiveNote,
+        })
         .eq('tracking_id', trackingId)
         .select()
         .single();
-
-      // Graceful fallback if is_deleted column does not yet exist
-      if (error && (error.code === '42703' || error.message?.includes('is_deleted'))) {
-        const retry = await supabase
-          .from('registrations')
-          .update({
-            status: 'Archived',
-            declined_reason: '[ARCHIVED] Record archived by administrator.',
-          })
-          .eq('tracking_id', trackingId)
-          .select()
-          .single();
-        data = retry.data;
-        error = retry.error;
-      }
 
       if (error) {
         return NextResponse.json({ error: 'Failed to archive record: ' + error.message }, { status: 500 });
@@ -228,39 +148,29 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: `Record ${trackingId} has been safely archived (soft deleted). It can be restored from the Archived tab.`,
+        message: `Record ${trackingId} has been safely archived. You can view or restore it anytime from the Archived tab.`,
         registration: data,
       });
     }
 
-    // RESTORE: Restore an archived student record
+    // 6. RESTORE ARCHIVED RECORD
     if (action === 'restore') {
-      const updatePayload: Record<string, any> = {
-        is_deleted: false,
-        deleted_at: null,
-        status: 'Pending',
-      };
+      // Determine restored status based on whether a receipt proof was uploaded
+      const restoredStatus = currentReg.receipt_url ? 'Under Review' : 'Pending';
 
-      let { data, error } = await supabase
+      // Clean archive marker from declined_reason
+      let cleanReason = currentReg.declined_reason || '';
+      cleanReason = cleanReason.replace(/\[ARCHIVED:[^\]]*\]\s*\|?\s*/g, '').trim();
+
+      const { data, error } = await supabase
         .from('registrations')
-        .update(updatePayload)
+        .update({
+          status: restoredStatus,
+          declined_reason: cleanReason || null,
+        })
         .eq('tracking_id', trackingId)
         .select()
         .single();
-
-      if (error && (error.code === '42703' || error.message?.includes('is_deleted'))) {
-        const retry = await supabase
-          .from('registrations')
-          .update({
-            status: 'Pending',
-            declined_reason: null,
-          })
-          .eq('tracking_id', trackingId)
-          .select()
-          .single();
-        data = retry.data;
-        error = retry.error;
-      }
 
       if (error) {
         return NextResponse.json({ error: 'Failed to restore record: ' + error.message }, { status: 500 });
@@ -268,13 +178,35 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: `Record ${trackingId} has been successfully restored.`,
+        message: `Record ${trackingId} successfully restored to active records (${restoredStatus}).`,
         registration: data,
       });
     }
 
-    return NextResponse.json({ error: 'Invalid action.' }, { status: 400 });
+    // 7. PERMANENT DELETE (Only allowed for records that are already in 'Archived' status)
+    if (action === 'permanent_delete') {
+      if (currentReg.status !== 'Archived') {
+        return NextResponse.json(
+          { error: 'For data protection, active student records must first be archived before permanent deletion.' },
+          { status: 400 }
+        );
+      }
+
+      const { error } = await supabase.from('registrations').delete().eq('tracking_id', trackingId);
+
+      if (error) {
+        return NextResponse.json({ error: 'Failed to permanently remove record: ' + error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Archived record ${trackingId} permanently deleted from database.`,
+      });
+    }
+
+    return NextResponse.json({ error: `Invalid action "${action}".` }, { status: 400 });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('Admin Action API Error:', err);
+    return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
   }
 }

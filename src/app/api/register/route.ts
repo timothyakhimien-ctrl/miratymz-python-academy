@@ -104,7 +104,7 @@ export async function POST(request: Request) {
     const trackingId = generateTrackingId();
     const effectiveGoals = (learningGoals || learning_goals || '').trim();
 
-    // Prepare insert record
+    // Prepare insert record using verified standard PostgreSQL columns
     const insertPayload: Record<string, any> = {
       tracking_id: trackingId,
       full_name: fullName.trim(),
@@ -119,37 +119,16 @@ export async function POST(request: Request) {
       status: 'Pending',
     };
 
-    if (isSchool) {
-      insertPayload.school_id = verifiedSchool.id;
-      insertPayload.school_name = verifiedSchool.name;
-    }
-
     if (effectiveGoals) {
       insertPayload.learning_goals = effectiveGoals;
     }
 
     // Attempt insertion
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from('registrations')
       .insert(insertPayload)
       .select()
       .single();
-
-    // Graceful schema fallback: if optional columns (learning_goals, school_id, school_name)
-    // do not yet exist in PostgreSQL schema, strip them and retry so the student registration is never blocked.
-    if (error && (error.code === '42703' || error.message?.includes('column'))) {
-      console.warn('Column missing in Supabase schema during registration insert. Retrying without optional columns...', error.message);
-      delete insertPayload.learning_goals;
-      delete insertPayload.school_id;
-      delete insertPayload.school_name;
-      const retry = await supabase
-        .from('registrations')
-        .insert(insertPayload)
-        .select()
-        .single();
-      data = retry.data;
-      error = retry.error;
-    }
 
     if (error) {
       console.error('Registration insertion error:', error);
@@ -201,7 +180,7 @@ export async function POST(request: Request) {
       bankDetails,
     });
   } catch (err: any) {
-    console.error('API Error:', err);
+    console.error('Registration API Error:', err);
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
   }
 }
