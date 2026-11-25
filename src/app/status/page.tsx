@@ -270,12 +270,12 @@ function StatusContent() {
               </div>
 
               {/* Class Schedule Note */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-700 flex items-center justify-between">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-brand-700" />
-                  <span>Official Class Commencement Date:</span>
+                  <Calendar className="w-4 h-4 text-brand-700 shrink-0" />
+                  <span>Cohort Enrollment Status:</span>
                 </div>
-                <strong className="text-brand-900">Monday, 23 November 2026</strong>
+                <strong className="text-brand-900">Early Registration Open &bull; Onboarding Active</strong>
               </div>
             </div>
           )}

@@ -679,17 +679,17 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex border-b border-slate-200 space-x-6 text-sm font-bold overflow-x-auto pb-1">
+      <div className="bg-white border border-slate-200 rounded-2xl px-3 sm:px-5 pt-2.5 shadow-sm flex space-x-4 sm:space-x-6 text-xs sm:text-sm font-bold overflow-x-auto">
         <button
           onClick={() => setActiveTab('overview')}
           className={`pb-3 flex items-center gap-2 transition border-b-2 whitespace-nowrap ${
             activeTab === 'overview'
               ? 'border-brand-800 text-brand-900'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
           <LayoutDashboard className="w-4 h-4" />
-          <span>Dashboard Overview</span>
+          <span>Overview</span>
         </button>
 
         <button
@@ -697,14 +697,14 @@ export default function AdminPage() {
           className={`pb-3 flex items-center gap-2 transition border-b-2 whitespace-nowrap ${
             activeTab === 'registrations'
               ? 'border-brand-800 text-brand-900'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Student Registrations &amp; Receipts</span>
+          <span>Registrations &amp; Receipts</span>
           {stats.underReview > 0 && (
             <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black">
-              {stats.underReview} Under Review
+              {stats.underReview}
             </span>
           )}
         </button>
@@ -714,11 +714,11 @@ export default function AdminPage() {
           className={`pb-3 flex items-center gap-2 transition border-b-2 whitespace-nowrap ${
             activeTab === 'schools'
               ? 'border-brand-800 text-brand-900'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
           <SchoolIcon className="w-4 h-4" />
-          <span>Isheri Pipeline Schools Directory ({schools.length})</span>
+          <span>Schools ({schools.length})</span>
         </button>
 
         <button
@@ -726,11 +726,11 @@ export default function AdminPage() {
           className={`pb-3 flex items-center gap-2 transition border-b-2 whitespace-nowrap ${
             activeTab === 'settings'
               ? 'border-brand-800 text-brand-900'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
           <Settings className="w-4 h-4" />
-          <span>Bank &amp; Academy Configuration</span>
+          <span>Settings</span>
         </button>
       </div>
 
@@ -879,8 +879,172 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Registrations Table */}
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+          {/* Mobile Registrations Cards (Phones & Small Tablets) */}
+          <div className="md:hidden space-y-3">
+            {registrations.length === 0 ? (
+              <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-xs text-slate-400">
+                {dataLoading ? 'Loading records...' : 'No registrations found matching this filter.'}
+              </div>
+            ) : (
+              registrations.map((reg) => {
+                const admissionUrl = getAdmissionUrl(reg);
+                return (
+                  <div
+                    key={`mob-${reg.id || reg.tracking_id}`}
+                    className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-extrabold text-slate-900 text-sm truncate">{reg.full_name}</div>
+                        <div className="text-[11px] font-mono font-bold text-brand-800">{reg.tracking_id}</div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="font-black text-slate-900 text-sm">{formatNaira(reg.amount)}</div>
+                        <span
+                          className={`inline-block font-bold text-[10px] px-2 py-0.5 rounded-full mt-0.5 ${
+                            reg.status === 'Archived'
+                              ? 'bg-slate-200 text-slate-700'
+                              : reg.status === 'Added to VIP Group'
+                              ? 'bg-emerald-100 text-emerald-950'
+                              : reg.status === 'Approved'
+                              ? 'bg-emerald-100 text-emerald-900'
+                              : reg.status === 'Under Review'
+                              ? 'bg-blue-100 text-blue-900'
+                              : reg.status === 'Pending'
+                              ? 'bg-amber-100 text-amber-900'
+                              : 'bg-red-100 text-red-900'
+                          }`}
+                        >
+                          {reg.status === 'Added to VIP Group' ? 'In VIP Group' : reg.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-slate-600 space-y-1 border-t border-slate-100 pt-2">
+                      <div className="truncate">{reg.email}</div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-brand-800">{reg.phone}</span>
+                        <a
+                          href={`https://wa.me/${reg.phone.replace(/[^0-9]/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg inline-flex items-center gap-1"
+                        >
+                          <MessageCircle className="w-3 h-3" />
+                          <span>WhatsApp</span>
+                        </a>
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        {reg.category === 'school'
+                          ? 'School Student'
+                          : reg.category === 'uniben'
+                          ? 'UNIBEN Student'
+                          : 'General Public'}{' '}
+                        &bull; {reg.institution === 'General Public' ? 'Open Enrollment' : reg.institution}
+                      </div>
+                    </div>
+
+                    {(reg.receipt_url || admissionUrl) && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {reg.receipt_url && (
+                          <button
+                            onClick={() =>
+                              setDocModal({
+                                receiptUrl: reg.receipt_url,
+                                admissionLetterUrl: admissionUrl,
+                                studentName: reg.full_name,
+                                trackingId: reg.tracking_id,
+                                activeTab: 'receipt',
+                              })
+                            }
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-bold text-brand-700 bg-brand-50 border border-brand-200 px-3 py-2 rounded-xl"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View Receipt</span>
+                          </button>
+                        )}
+                        {admissionUrl && (
+                          <button
+                            onClick={() =>
+                              setDocModal({
+                                receiptUrl: reg.receipt_url,
+                                admissionLetterUrl: admissionUrl,
+                                studentName: reg.full_name,
+                                trackingId: reg.tracking_id,
+                                activeTab: 'admission',
+                              })
+                            }
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-bold text-gold-800 bg-gold-50 border border-gold-200 px-3 py-2 rounded-xl"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>Admission Letter</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+                      {reg.status === 'Archived' ? (
+                        <>
+                          <button
+                            onClick={() => handleAction(reg.tracking_id, 'restore')}
+                            className="flex-1 bg-emerald-600 text-white font-bold text-xs py-2 px-3 rounded-xl inline-flex items-center justify-center gap-1"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Restore</span>
+                          </button>
+                          <button
+                            onClick={() => handleAction(reg.tracking_id, 'permanent_delete')}
+                            className="bg-red-600 text-white font-bold text-xs py-2 px-3 rounded-xl inline-flex items-center justify-center gap-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete</span>
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {reg.status === 'Approved' && (
+                            <button
+                              onClick={() => handleAction(reg.tracking_id, 'added_to_vip')}
+                              className="flex-1 bg-emerald-600 text-white font-bold text-xs py-2 px-3 rounded-xl"
+                            >
+                              Mark VIP Joined
+                            </button>
+                          )}
+                          {reg.status !== 'Approved' && reg.status !== 'Added to VIP Group' && (
+                            <button
+                              onClick={() => handleAction(reg.tracking_id, 'approve', reg)}
+                              className="flex-1 bg-emerald-700 text-white font-bold text-xs py-2 px-3 rounded-xl"
+                            >
+                              {reg.status === 'Declined' ? 'Re-Approve' : 'Approve'}
+                            </button>
+                          )}
+                          {reg.status !== 'Declined' && (
+                            <button
+                              onClick={() => handleAction(reg.tracking_id, 'decline')}
+                              className="bg-slate-200 text-slate-800 font-bold text-xs py-2 px-3 rounded-xl"
+                            >
+                              Decline
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleAction(reg.tracking_id, 'delete')}
+                            className="bg-slate-100 text-slate-600 hover:text-red-600 p-2 rounded-xl"
+                            title="Archive / Soft Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop Registrations Table */}
+          <div className="hidden md:block bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-600">
                 <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-700 font-extrabold border-b border-slate-200">
@@ -1798,7 +1962,7 @@ export default function AdminPage() {
               <input
                 type="text"
                 required
-                placeholder="e.g. GOTEGS-2026"
+                placeholder="e.g. SCHOOL-2026"
                 value={editingSchool.accessCode}
                 onChange={(e) => setEditingSchool({ ...editingSchool, accessCode: e.target.value.toUpperCase() })}
                 className="w-full px-3 py-2 text-xs font-mono font-bold uppercase tracking-wider rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600"

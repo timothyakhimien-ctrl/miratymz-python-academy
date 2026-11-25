@@ -818,7 +818,7 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
                     <KeyRound className={`w-4 h-4 absolute left-3.5 top-3.5 ${isSchoolCodeVerified ? 'text-emerald-600' : 'text-slate-400'}`} />
                     <input
                       type="text"
-                      placeholder="e.g. GOTEGS-2026"
+                      placeholder="Enter your school access code"
                       value={schoolCodeInput}
                       disabled={isSchoolCodeVerified || verifyingCode}
                       onChange={(e) => {
@@ -911,6 +911,8 @@ function RegisterForm({ initialPromo }: { initialPromo?: PublicPromoData }) {
                   onChange={(e) => setClassLevel(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
                 >
+                  <option value="Junior Secondary (JSS 1)">Junior Secondary (JSS 1)</option>
+                  <option value="Junior Secondary (JSS 2)">Junior Secondary (JSS 2)</option>
                   <option value="Junior Secondary (JSS 3)">Junior Secondary (JSS 3)</option>
                   <option value="Senior Secondary (SS 1)">Senior Secondary (SS 1)</option>
                   <option value="Senior Secondary (SS 2)">Senior Secondary (SS 2)</option>

@@ -156,7 +156,7 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
     },
     {
       q: 'When does the training begin?',
-      a: 'Classes commence officially on Monday, 23 November 2026. Register early to secure your limited seat and preparatory study guide.',
+      a: 'Enrollment for the upcoming cohort is currently open! Register now to join early, secure your limited seat, and receive your preparatory study guide.',
     },
   ];
 
@@ -199,29 +199,29 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
             </p>
 
             {/* Quick Actions */}
-            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-3 pt-2 max-w-md sm:max-w-none mx-auto">
               <a
                 href="#enrollment-tracks"
-                className="bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-sm px-6 py-3.5 rounded-xl shadow-lg transition flex items-center gap-2"
+                className="bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-sm px-6 py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2"
               >
                 <span>Choose Your Enrollment Track</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4 shrink-0" />
               </a>
 
               <button
                 type="button"
                 onClick={() => setShowGuideModal(true)}
-                className="bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs sm:text-sm px-5 py-3.5 rounded-xl transition flex items-center gap-2"
+                className="bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs sm:text-sm px-5 py-3.5 rounded-xl transition flex items-center justify-center gap-2"
               >
-                <FileText className="w-4 h-4 text-gold-400" />
+                <FileText className="w-4 h-4 text-gold-400 shrink-0" />
                 <span>Download Syllabus (PDF)</span>
               </button>
 
               <Link
                 href="/status"
-                className="bg-brand-900/80 hover:bg-brand-800 border border-brand-700 text-slate-300 font-bold text-xs sm:text-sm px-5 py-3.5 rounded-xl transition flex items-center gap-2"
+                className="bg-brand-900/80 hover:bg-brand-800 border border-brand-700 text-slate-300 font-bold text-xs sm:text-sm px-5 py-3.5 rounded-xl transition flex items-center justify-center gap-2"
               >
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>Check Admission Status</span>
               </Link>
             </div>
@@ -578,7 +578,7 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
                 <HelpCircle className="w-4 h-4 text-brand-700 shrink-0 mt-0.5" />
                 <span>{faq.q}</span>
               </h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mt-2 pl-6.5">
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mt-2 sm:pl-6">
                 {faq.a}
               </p>
             </div>
