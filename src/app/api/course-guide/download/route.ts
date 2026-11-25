@@ -10,28 +10,15 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const trackingId = searchParams.get('trackingId')?.trim();
-    const forceDownload = searchParams.get('download') === '1' || searchParams.get('download') === 'true';
 
-    // Public syllabus request (no trackingId): serve the official 8-week syllabus PDF directly
+    // STRICT PAYMENT GATE: Never allow PDF download without a verified paid Tracking ID
     if (!trackingId) {
-      const syllabusPath = path.join(process.cwd(), 'public', 'syllabus.pdf');
-      if (fs.existsSync(syllabusPath)) {
-        const fileBuffer = fs.readFileSync(syllabusPath);
-        return new NextResponse(fileBuffer, {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': `${forceDownload ? 'attachment' : 'inline'}; filename="MiraTymz_Python_8Week_Syllabus.pdf"`,
-            'Cache-Control': 'public, max-age=3600',
-          },
-        });
-      }
-      return NextResponse.redirect(new URL('/syllabus.pdf', request.url));
+      return NextResponse.redirect(new URL('/status?notice=verification_required', request.url));
     }
 
     const supabase = getServiceSupabase();
 
-    // Verify student is actually approved when requesting protected study package via trackingId
+    // Verify student is actually approved (paid & verified)
     const { data: record, error } = await supabase
       .from('registrations')
       .select('status')
@@ -44,10 +31,10 @@ export async function GET(request: Request) {
       );
     }
 
-    // Student is confirmed approved – redirect to latest uploaded course guide in storage
+    // Student is confirmed Approved / Added to VIP Group
+    // 1. Check Supabase Storage for admin-uploaded course guide PDF
     const { data: files } = await supabase.storage.from('receipts').list();
     const guideFiles = files?.filter((f: any) => f.name.includes('python_course_guide')) || [];
-    let targetFileName = 'latest_python_course_guide.pdf';
 
     if (guideFiles.length > 0) {
       guideFiles.sort((a: any, b: any) => {
@@ -55,12 +42,40 @@ export async function GET(request: Request) {
         const dateB = b.created_at || b.name;
         return dateB.localeCompare(dateA);
       });
-      targetFileName = guideFiles[0].name;
+      const targetFileName = guideFiles[0].name;
+      const { data: fileBlob, error: downloadErr } = await supabase.storage
+        .from('receipts')
+        .download(targetFileName);
+
+      if (!downloadErr && fileBlob) {
+        const arrayBuffer = await fileBlob.arrayBuffer();
+        return new NextResponse(Buffer.from(arrayBuffer), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': 'attachment; filename="MiraTymz_Python_Course_Guide.pdf"',
+            'Cache-Control': 'no-store',
+          },
+        });
+      }
     }
 
-    const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(targetFileName);
-    return NextResponse.redirect(urlData.publicUrl);
+    // 2. Fallback to protected private_assets/syllabus.pdf on server
+    const privatePath = path.join(process.cwd(), 'private_assets', 'syllabus.pdf');
+    if (fs.existsSync(privatePath)) {
+      const fileBuffer = fs.readFileSync(privatePath);
+      return new NextResponse(fileBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'attachment; filename="MiraTymz_Python_Course_Guide.pdf"',
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
+
+    return NextResponse.redirect(new URL(`/status?q=${encodeURIComponent(trackingId)}`, request.url));
   } catch (err: any) {
-    return NextResponse.redirect(new URL('/syllabus.pdf', request.url));
+    return NextResponse.redirect(new URL('/status', request.url));
   }
 }

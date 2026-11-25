@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Python Programming Programme | MiraTymz Academy',
     description: 'Special 30% discount for UNIBEN students. Learn today, stay ahead!',
-    images: ['/flyer.jpg'],
+    images: ['/flyer.png'],
   },
 };
 

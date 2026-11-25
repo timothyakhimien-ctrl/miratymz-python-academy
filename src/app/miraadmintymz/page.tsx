@@ -63,6 +63,7 @@ export default function AdminPage() {
   const [passwordInput, setPasswordInput] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [dashboardError, setDashboardError] = useState('');
 
   // Active Tab: 'overview' | 'registrations' | 'schools' | 'settings'
   const [activeTab, setActiveTab] = useState<'overview' | 'registrations' | 'schools' | 'settings'>('registrations');
@@ -153,6 +154,12 @@ export default function AdminPage() {
     setTimeout(() => setToastMsg(''), 4000);
   };
 
+  const handleAuthExpired = (customMsg?: string) => {
+    localStorage.removeItem('miratymz_admin_token');
+    setToken(null);
+    setAuthError(customMsg || 'Your admin session has expired or is invalid. Please sign in again.');
+  };
+
   // Login handler
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,6 +199,7 @@ export default function AdminPage() {
   const fetchRegistrations = async () => {
     if (!token) return;
     setDataLoading(true);
+    setDashboardError('');
 
     try {
       const url = `/api/admin/registrations?status=${encodeURIComponent(statusFilter)}&category=${encodeURIComponent(
@@ -201,13 +209,20 @@ export default function AdminPage() {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
-      const data = await res.json();
-      if (res.ok) {
-        setRegistrations(data.registrations || []);
-        if (data.stats) setStats(data.stats);
+      if (res.status === 401) {
+        handleAuthExpired();
+        return;
       }
-    } catch (err) {
+      const data = await res.json();
+      if (!res.ok) {
+        setDashboardError(data.error || 'Failed to load student registrations.');
+        return;
+      }
+      setRegistrations(data.registrations || []);
+      if (data.stats) setStats(data.stats);
+    } catch (err: any) {
       console.error('Error fetching registrations:', err);
+      setDashboardError('Network error while connecting to database. Please tap Retry.');
     } finally {
       setDataLoading(false);
     }
@@ -221,8 +236,16 @@ export default function AdminPage() {
       const res = await fetch(`/api/admin/schools?_t=${Date.now()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (res.status === 401) {
+        handleAuthExpired();
+        return;
+      }
       const data = await res.json();
-      if (res.ok && data.schools) {
+      if (!res.ok) {
+        setDashboardError(data.error || 'Failed to load schools directory.');
+        return;
+      }
+      if (data.schools) {
         setSchools(data.schools);
       }
     } catch (err) {
@@ -279,6 +302,10 @@ export default function AdminPage() {
         }),
       });
 
+      if (res.status === 401) {
+        handleAuthExpired();
+        return;
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save settings');
 
@@ -477,6 +504,10 @@ export default function AdminPage() {
         }),
       });
 
+      if (res.status === 401) {
+        handleAuthExpired();
+        return;
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Action failed');
 
@@ -592,6 +623,27 @@ export default function AdminPage() {
         <div className="fixed bottom-6 right-6 z-50 bg-brand-900 text-white border border-brand-500/40 text-xs font-bold px-5 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-bounce">
           <CheckCircle2 className="w-4 h-4 text-brand-400" />
           <span>{toastMsg}</span>
+        </div>
+      )}
+
+      {/* Dashboard Error Banner */}
+      {dashboardError && (
+        <div className="bg-red-50 border-2 border-red-400 text-red-950 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-start gap-2.5 text-xs sm:text-sm font-semibold">
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <span>{dashboardError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              fetchRegistrations();
+              fetchSchools();
+              fetchSettings();
+            }}
+            className="bg-red-700 hover:bg-red-800 text-white text-xs font-extrabold px-4 py-2 rounded-xl transition shrink-0 self-start sm:self-auto"
+          >
+            Retry Connection
+          </button>
         </div>
       )}
 
@@ -1318,7 +1370,84 @@ export default function AdminPage() {
             </button>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+          {/* Mobile Schools Cards */}
+          <div className="md:hidden space-y-3">
+            {schools.length === 0 ? (
+              <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-xs text-slate-400">
+                {schoolsLoading ? 'Loading schools directory...' : 'No schools found.'}
+              </div>
+            ) : (
+              schools.map((school) => (
+                <div
+                  key={`mob-school-${school.id}`}
+                  className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-extrabold text-slate-900 text-sm">{school.name}</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">{school.address}</div>
+                      <div className="text-[10px] text-slate-400 font-semibold">{school.area}</div>
+                    </div>
+                    <button
+                      onClick={() => handleToggleSchool(school.id)}
+                      className={`shrink-0 font-bold text-[11px] px-2.5 py-1 rounded-full transition ${
+                        school.isEnabled
+                          ? 'bg-emerald-100 text-emerald-900'
+                          : 'bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {school.isEnabled ? '✓ Active' : '✕ Disabled'}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+                    <span className="text-slate-500 font-semibold">Access Code:</span>
+                    <span className="font-mono font-black text-brand-900 bg-brand-50 border border-brand-200 px-2.5 py-1 rounded-lg">
+                      {school.accessCode}
+                    </span>
+                  </div>
+
+                  {school.hasPaymentConfigured ? (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-[11px]">
+                      <div className="font-bold text-emerald-900">Dedicated Bank Configured</div>
+                      <div className="font-mono font-bold text-slate-800 mt-0.5">
+                        {school.bankName} &bull; {school.accountNumber}
+                      </div>
+                      <div className="text-slate-600">{school.accountName}</div>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-[11px] text-amber-900 font-semibold">
+                      Pending Administrative Sign-off
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => {
+                        setEditingSchool({ ...school });
+                        setShowSchoolModal(true);
+                      }}
+                      className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs py-2 rounded-xl transition"
+                    >
+                      Edit School
+                    </button>
+                    {school.id !== 'gotegs-intl' && (
+                      <button
+                        onClick={() => handleDeleteSchool(school.id, school.name)}
+                        className="bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs p-2 rounded-xl transition"
+                        title="Delete School"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop Schools Table */}
+          <div className="hidden md:block bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-600">
                 <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-700 font-extrabold border-b border-slate-200">

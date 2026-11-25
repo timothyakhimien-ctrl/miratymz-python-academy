@@ -214,7 +214,7 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
                 className="bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs sm:text-sm px-5 py-3.5 rounded-xl transition flex items-center justify-center gap-2"
               >
                 <FileText className="w-4 h-4 text-gold-400 shrink-0" />
-                <span>Download Syllabus (PDF)</span>
+                <span>View Course Syllabus</span>
               </button>
 
               <Link
@@ -515,14 +515,14 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
             Step-by-step progression taking you from beginner concepts to building complete applications.
           </p>
           <div className="mt-4 flex justify-center">
-            <a
-              href="/syllabus.pdf"
-              download="MiraTymz_Python_8Week_Syllabus.pdf"
+            <button
+              type="button"
+              onClick={() => setShowGuideModal(true)}
               className="inline-flex items-center gap-2 bg-brand-900 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition"
             >
               <FileText className="w-4 h-4 text-gold-400" />
-              <span>Download Full Syllabus (PDF)</span>
-            </a>
+              <span>Course Guide PDF (Paid Students)</span>
+            </button>
           </div>
         </div>
 
@@ -587,7 +587,7 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
       </section>
 
       {/* ============================================================ */}
-      {/* 6. COURSE GUIDE PDF PREVIEW MODAL                            */}
+      {/* 6. COURSE GUIDE & PAID PDF UNLOCK MODAL                      */}
       {/* ============================================================ */}
       {showGuideModal && (
         <div
@@ -595,15 +595,17 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
           onClick={() => setShowGuideModal(false)}
         >
           <div
-            className="bg-white rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-2xl"
+            className="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="font-black text-sm sm:text-base text-slate-900 truncate">
-                  Python Programming Fundamentals to Career Pathways
+                  8-Week Python Curriculum &amp; Study Guide
                 </h3>
-                <span className="text-xs text-slate-500 block">Official 8-Week Course Guide &amp; Curriculum (PDF)</span>
+                <span className="text-xs text-slate-500 block">
+                  Full PDF study package is unlocked exclusively for verified paid students
+                </span>
               </div>
               <button
                 type="button"
@@ -615,38 +617,53 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
               </button>
             </div>
 
-            {/* Mobile-Friendly Direct Download Banner */}
-            <div className="p-4 bg-brand-50 border-b border-brand-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              <div className="text-xs text-brand-950">
-                <strong className="block font-extrabold">8-Week Python Syllabus Ready</strong>
-                <span className="text-brand-800">Download the PDF directly or open it in a new tab for easy mobile reading.</span>
+            {/* Curriculum Preview + Paid PDF Gate */}
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 bg-slate-50">
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 space-y-2">
+                <div className="flex items-center gap-2 font-extrabold text-xs sm:text-sm text-amber-900">
+                  <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0" />
+                  <span>Paid Enrollment Required for PDF Download</span>
+                </div>
+                <p className="text-xs text-amber-900/90 leading-relaxed">
+                  The complete downloadable <strong>Python Course Guide PDF</strong> (with setup instructions, exercises, and project blueprints) is unlocked automatically once your registration payment is verified and approved.
+                </p>
+                <div className="pt-1 flex flex-wrap gap-2">
+                  <Link
+                    href="/status"
+                    onClick={() => setShowGuideModal(false)}
+                    className="bg-brand-900 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition inline-flex items-center gap-1.5"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Already Paid? Verify Tracking ID &amp; Download</span>
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={() => setShowGuideModal(false)}
+                    className="bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-xs px-4 py-2.5 rounded-xl transition inline-flex items-center gap-1.5"
+                  >
+                    <span>Enroll Now to Unlock</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
-                <a
-                  href="/syllabus.pdf"
-                  download="MiraTymz_Python_8Week_Syllabus.pdf"
-                  className="flex-1 sm:flex-initial bg-gold-500 hover:bg-gold-600 text-brand-950 font-black text-xs px-4 py-2.5 rounded-xl shadow transition text-center whitespace-nowrap"
-                >
-                  Download PDF &darr;
-                </a>
-                <a
-                  href="/syllabus.pdf"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 sm:flex-initial bg-brand-900 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow transition text-center whitespace-nowrap inline-flex items-center justify-center gap-1"
-                >
-                  <span>Open in New Tab</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            </div>
 
-            <div className="p-3 sm:p-4 overflow-auto flex-1 bg-slate-100 min-h-[260px] sm:min-h-[420px] hidden sm:flex items-center justify-center">
-              <iframe
-                src="/syllabus.pdf"
-                className="w-full h-[460px] border-0 rounded-xl bg-white"
-                title="MiraTymz Python 8-Week Curriculum Preview"
-              />
+              <div className="space-y-2.5">
+                <div className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                  8-Week Topic Outline
+                </div>
+                {curriculum.map((item, idx) => (
+                  <div key={idx} className="bg-white border border-slate-200 rounded-xl p-3.5">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-[11px] font-black text-brand-800 bg-brand-50 px-2.5 py-0.5 rounded-full">
+                        {item.week}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400">Module {idx + 1}</span>
+                    </div>
+                    <div className="font-extrabold text-xs sm:text-sm text-slate-900">{item.title}</div>
+                    <p className="text-[11px] text-slate-600 mt-1">{item.topics}</p>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="p-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-white">
@@ -655,7 +672,7 @@ export default function HomePageClient({ initialPromo }: { initialPromo?: Public
                 onClick={() => setShowGuideModal(false)}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow transition inline-flex items-center gap-1.5"
               >
-                <span>Ready to Enroll? Register Now</span>
+                <span>Register Now</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
               <button
