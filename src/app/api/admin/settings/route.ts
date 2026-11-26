@@ -50,12 +50,25 @@ export async function GET(request: Request) {
     };
 
     try {
-      const { data: promoFile, error: promoErr } = await supabase.storage
+      const { data: signedPromo } = await supabase.storage
         .from('receipts')
-        .download('promo_settings.json');
-      if (!promoErr && promoFile) {
-        const text = await promoFile.text();
-        const parsed = JSON.parse(text);
+        .createSignedUrl('promo_settings.json', 60);
+      let parsed: any = null;
+      if (signedPromo?.signedUrl) {
+        const promoRes = await fetch(`${signedPromo.signedUrl}&_cb=${Date.now()}`, { cache: 'no-store' });
+        if (promoRes.ok) {
+          parsed = await promoRes.json();
+        }
+      }
+      if (!parsed) {
+        const { data: promoFile, error: promoErr } = await supabase.storage
+          .from('receipts')
+          .download('promo_settings.json');
+        if (!promoErr && promoFile) {
+          parsed = JSON.parse(await promoFile.text());
+        }
+      }
+      if (parsed) {
         promoSettings = {
           enabled: parsed.enabled !== undefined ? Boolean(parsed.enabled) : true,
           unibenDiscountFee: Number(parsed.unibenDiscountFee || parsed.unibenFee) || 5950,
@@ -173,6 +186,7 @@ export async function POST(request: Request) {
         .from('receipts')
         .upload('promo_settings.json', promoBuffer, {
           contentType: 'application/json',
+          cacheControl: '0',
           upsert: true,
         });
     } catch (uploadErr) {

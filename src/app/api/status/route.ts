@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServiceSupabase } from '@/lib/supabase';
+import { getAllSchools } from '@/lib/schools';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -74,11 +75,34 @@ export async function GET(request: Request) {
     }
 
     if (record.status === 'Pending' || record.status === 'Declined') {
-      bankDetails = {
-        bankName: settings?.bank_name || 'OPay / PalmPay',
-        accountNumber: settings?.account_number || '8100000000',
-        accountName: settings?.account_name || 'MiraTymz Programming Academy',
-      };
+      if (record.category === 'school') {
+        const schools = await getAllSchools();
+        const matchedSchool = schools.find(
+          (s) =>
+            (record.school_id && s.id === record.school_id) ||
+            (record.institution && s.name.toLowerCase() === String(record.institution).toLowerCase())
+        );
+
+        if (matchedSchool) {
+          bankDetails = {
+            hasPaymentConfigured: Boolean(matchedSchool.hasPaymentConfigured),
+            schoolName: matchedSchool.name,
+            bankName: matchedSchool.bankName || '',
+            accountNumber: matchedSchool.accountNumber || '',
+            accountName: matchedSchool.accountName || '',
+            paymentInstructions: matchedSchool.paymentInstructions || '',
+          };
+        }
+      }
+
+      if (!bankDetails) {
+        bankDetails = {
+          hasPaymentConfigured: true,
+          bankName: settings?.bank_name || 'OPay / PalmPay',
+          accountNumber: settings?.account_number || '8100000000',
+          accountName: settings?.account_name || 'MiraTymz Programming Academy',
+        };
+      }
     }
 
     // Detect admission letter URL if present in declined_reason
