@@ -224,11 +224,31 @@ export const INITIAL_SCHOOLS: School[] = [
 ];
 
 /**
- * Loads all schools from Supabase Storage (receipts/schools_config.json) or falls back to INITIAL_SCHOOLS.
+ * Loads all schools from Supabase Storage (receipts/schools_config.json) with cache-busting,
+ * or falls back to INITIAL_SCHOOLS.
  */
 export async function getAllSchools(): Promise<School[]> {
   try {
     const supabase = getServiceSupabase();
+
+    // Bypass Supabase Storage CDN cache by fetching signed/public URL with a unique cache-buster
+    const { data: signedData } = await supabase.storage
+      .from('receipts')
+      .createSignedUrl('schools_config.json', 60);
+
+    const urlToFetch = signedData?.signedUrl
+      ? `${signedData.signedUrl}&_cb=${Date.now()}`
+      : `${supabase.storage.from('receipts').getPublicUrl('schools_config.json').data.publicUrl}?_cb=${Date.now()}`;
+
+    const res = await fetch(urlToFetch, { cache: 'no-store' });
+    if (res.ok) {
+      const parsed: School[] = await res.json();
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+
+    // Fallback to SDK download if fetch failed
     const { data: file, error } = await supabase.storage.from('receipts').download('schools_config.json');
     if (!error && file) {
       const text = await file.text();
@@ -244,7 +264,7 @@ export async function getAllSchools(): Promise<School[]> {
 }
 
 /**
- * Saves all schools to Supabase Storage (receipts/schools_config.json).
+ * Saves all schools to Supabase Storage (receipts/schools_config.json) with cacheControl: '0'.
  */
 export async function saveAllSchools(schools: School[]): Promise<boolean> {
   try {
@@ -252,6 +272,7 @@ export async function saveAllSchools(schools: School[]): Promise<boolean> {
     const buffer = Buffer.from(JSON.stringify(schools, null, 2), 'utf-8');
     const { error } = await supabase.storage.from('receipts').upload('schools_config.json', buffer, {
       contentType: 'application/json',
+      cacheControl: '0',
       upsert: true,
     });
     if (error) {

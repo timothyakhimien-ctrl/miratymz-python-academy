@@ -94,6 +94,7 @@ export default function AdminPage() {
   // Schools State
   const [schools, setSchools] = useState<SchoolData[]>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(false);
+  const [savingSchool, setSavingSchool] = useState(false);
   const [editingSchool, setEditingSchool] = useState<SchoolData | null>(null);
   const [showSchoolModal, setShowSchoolModal] = useState(false);
 
@@ -321,6 +322,7 @@ export default function AdminPage() {
   const handleSaveSchool = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSchool || !token) return;
+    setSavingSchool(true);
 
     try {
       const res = await fetch('/api/admin/schools', {
@@ -335,15 +337,26 @@ export default function AdminPage() {
         }),
       });
 
+      if (res.status === 401) {
+        handleAuthExpired();
+        return;
+      }
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save school');
 
+      if (Array.isArray(data.schools)) {
+        setSchools(data.schools);
+      } else {
+        await fetchSchools();
+      }
       showToast(data.message || 'School saved successfully!');
       setShowSchoolModal(false);
       setEditingSchool(null);
-      await fetchSchools();
     } catch (err: any) {
       alert(err.message || 'Error saving school');
+    } finally {
+      setSavingSchool(false);
     }
   };
 
@@ -362,10 +375,18 @@ export default function AdminPage() {
           schoolId,
         }),
       });
+      if (res.status === 401) {
+        handleAuthExpired();
+        return;
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to toggle school status');
+      if (Array.isArray(data.schools)) {
+        setSchools(data.schools);
+      } else {
+        await fetchSchools();
+      }
       showToast(data.message || 'School status updated.');
-      await fetchSchools();
     } catch (err: any) {
       alert(err.message || 'Error toggling school status');
     }
@@ -389,10 +410,18 @@ export default function AdminPage() {
           schoolId,
         }),
       });
+      if (res.status === 401) {
+        handleAuthExpired();
+        return;
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to delete school');
+      if (Array.isArray(data.schools)) {
+        setSchools(data.schools);
+      } else {
+        await fetchSchools();
+      }
       showToast(data.message || 'School removed from directory.');
-      await fetchSchools();
     } catch (err: any) {
       alert(err.message || 'Error deleting school');
     }
@@ -2154,6 +2183,16 @@ export default function AdminPage() {
                       className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300"
                     />
                   </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">Payment Instructions</label>
+                    <textarea
+                      rows={2}
+                      placeholder="Transfer the ₦5,000 discounted student tuition..."
+                      value={editingSchool.paymentInstructions || ''}
+                      onChange={(e) => setEditingSchool({ ...editingSchool, paymentInstructions: e.target.value })}
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300"
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs">
@@ -2183,9 +2222,10 @@ export default function AdminPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold shadow"
+                  disabled={savingSchool}
+                  className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold shadow disabled:opacity-50"
                 >
-                  Save School
+                  {savingSchool ? 'Saving...' : 'Save School'}
                 </button>
               </div>
             </div>

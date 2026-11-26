@@ -18,10 +18,17 @@ export async function GET(request: Request) {
     }
 
     const schools = await getAllSchools();
-    return NextResponse.json({
-      success: true,
-      schools,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        schools,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        },
+      }
+    );
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
@@ -50,6 +57,11 @@ export async function POST(request: Request) {
       const accessCode = (targetSchool.accessCode || '').trim().toUpperCase();
       const accessCodeHash = accessCode ? hashCode(accessCode) : (targetSchool.accessCodeHash || hashCode('SCHOOL-2026'));
 
+      const isPaymentConfigured = Boolean(targetSchool.hasPaymentConfigured);
+      const bankName = isPaymentConfigured ? (targetSchool.bankName || '').trim() || undefined : undefined;
+      const accountName = isPaymentConfigured ? (targetSchool.accountName || '').trim() || undefined : undefined;
+      const accountNumber = isPaymentConfigured ? (targetSchool.accountNumber || '').trim() || undefined : undefined;
+
       const updatedSchool: School = {
         id: schoolId,
         name: (targetSchool.name || '').trim(),
@@ -57,13 +69,13 @@ export async function POST(request: Request) {
         area: (targetSchool.area || 'Isheri Pipeline, Lagos').trim(),
         accessCode: accessCode || (idx >= 0 ? currentSchools[idx].accessCode : 'SCHOOL-2026'),
         accessCodeHash: accessCodeHash || (idx >= 0 ? currentSchools[idx].accessCodeHash : hashCode('SCHOOL-2026')),
-        paymentMethod: targetSchool.paymentMethod || (targetSchool.accountNumber ? 'bank_transfer' : 'pending'),
-        bankName: targetSchool.bankName || undefined,
-        accountName: targetSchool.accountName || undefined,
-        accountNumber: targetSchool.accountNumber || undefined,
-        paymentInstructions: targetSchool.paymentInstructions || undefined,
+        paymentMethod: isPaymentConfigured ? (targetSchool.paymentMethod === 'school_office' ? 'school_office' : 'bank_transfer') : 'pending',
+        bankName,
+        accountName,
+        accountNumber,
+        paymentInstructions: (targetSchool.paymentInstructions || '').trim() || undefined,
         isEnabled: targetSchool.isEnabled !== false,
-        hasPaymentConfigured: Boolean(targetSchool.accountNumber && targetSchool.bankName),
+        hasPaymentConfigured: isPaymentConfigured && Boolean(bankName && accountNumber),
         createdAt: idx >= 0 ? currentSchools[idx].createdAt : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };

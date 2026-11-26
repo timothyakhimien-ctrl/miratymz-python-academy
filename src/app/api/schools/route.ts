@@ -8,10 +8,17 @@ export const revalidate = 0;
 export async function GET() {
   try {
     const schools = await getPublicSchoolDirectory();
-    return NextResponse.json({
-      success: true,
-      schools,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        schools,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        },
+      }
+    );
   } catch (err: any) {
     return NextResponse.json({ error: 'Failed to load schools directory' }, { status: 500 });
   }
