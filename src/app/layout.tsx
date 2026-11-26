@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const SITE_URL = 'https://miratymz-python-academy.vercel.app';
-const OG_IMAGE_URL = `${SITE_URL}/og-image.png`;
+const OG_IMAGE_URL = `${SITE_URL}/og-image.jpg`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -28,8 +28,8 @@ export const metadata: Metadata = {
       {
         url: OG_IMAGE_URL,
         secureUrl: OG_IMAGE_URL,
-        alt: 'MiraTymz Programming Academy — 8-Week Practical Python Mastery Programme',
-        type: 'image/png',
+        alt: 'MiraTymz Programming Academy — Learn Python with MiraTymz!',
+        type: 'image/jpeg',
       },
     ],
   },
