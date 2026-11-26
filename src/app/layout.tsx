@@ -6,13 +6,39 @@ import { getPublicPromoSettings } from '@/lib/promo';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+const SITE_URL = 'https://miratymz-python-academy.vercel.app';
+const OG_IMAGE_URL = `${SITE_URL}/og-image.png`;
+
 export const metadata: Metadata = {
-  title: 'Python Programming: Foundations & Practical Development | MiraTymz Programming Academy',
-  description: '8-Week Intensive Python Training Programme by MiraTymz Programming Academy. Learn today, stay ahead with hands-on projects, industry curriculum, and physical/online mentorship.',
+  metadataBase: new URL(SITE_URL),
+  title: 'MiraTymz Programming Academy | 8-Week Practical Python Mastery Programme',
+  description:
+    'MiraTymz Programming Academy — 8-week practical Python training for university undergraduates, secondary school students, and working professionals. Build real software, automation tools, and portfolio projects.',
+  alternates: {
+    canonical: `${SITE_URL}/`,
+  },
   openGraph: {
-    title: 'Python Programming Programme | MiraTymz Academy',
-    description: 'Special 30% discount for UNIBEN students. Learn today, stay ahead!',
-    images: ['/flyer.png'],
+    type: 'website',
+    url: `${SITE_URL}/`,
+    siteName: 'MiraTymz Programming Academy',
+    title: 'MiraTymz Programming Academy',
+    description:
+      '8-week practical Python programming training for university undergraduates, secondary school students, and professionals. Learn real programming and build real software.',
+    images: [
+      {
+        url: OG_IMAGE_URL,
+        secureUrl: OG_IMAGE_URL,
+        alt: 'MiraTymz Programming Academy — 8-Week Practical Python Mastery Programme',
+        type: 'image/png',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'MiraTymz Programming Academy',
+    description:
+      '8-week practical Python programming training for university undergraduates, secondary school students, and professionals. Learn real programming and build real software.',
+    images: [OG_IMAGE_URL],
   },
 };
 
